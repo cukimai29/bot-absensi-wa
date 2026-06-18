@@ -73,7 +73,7 @@ const client = new Client({
 
 // Masukkan ID Grup WhatsApp target (biasanya diakhiri dengan @g.us)
 // Anda bisa mendapatkan ID ini dengan melakukan console.log(message.from) saat ada pesan masuk di grup
-const TARGET_GROUP_ID = '1234567890-123456@g.us';
+const TARGET_GROUP_ID = '120363418765506558@g.us';
 
 client.on('qr', (qr) => {
     console.log('Silakan scan QR Code ini dengan WhatsApp Anda:');
@@ -169,45 +169,58 @@ client.on('message', async msg => {
         msg.reply(pesan);
     }
 
-    // Pengecekan Admin
-    const isAdmin = (msg.author || msg.from) === '6285704682918@c.us';
+    // Pengecekan Admin (Mendukung nomor biasa dan format ID baru dari WhatsApp/@lid)
+    const senderId = msg.author || msg.from || '';
+    const isAdmin = senderId.includes('85704682918') || senderId.includes('194720949112994');
 
     // Fitur mengubah minggu semester yang aktif (maksimal 16)
-    if (msg.body.startsWith('.setminggu ')) {
+    if (msg.body.startsWith('.setminggu ') || msg.body.startsWith('.resetbot') || msg.body.startsWith('.testabsen')) {
         if (!isAdmin) {
             msg.reply('Mohon Maaf, fitur ini hanya bisa digunakan oleh admin!!');
             return;
         }
-        const mingguBaru = parseInt(msg.body.split(' ')[1]);
-        if (!isNaN(mingguBaru) && mingguBaru > 0 && mingguBaru <= 16) {
-            let data = loadData();
-            data.minggu_ke = mingguBaru;
+
+        // Fitur .setminggu (hanya admin)
+        if (msg.body.toLowerCase().startsWith('.setminggu')) {
+            const mingguBaru = parseInt(msg.body.split(' ')[1]);
+            if (!isNaN(mingguBaru) && mingguBaru > 0 && mingguBaru <= 16) {
+                let data = loadData();
+                data.minggu_ke = mingguBaru;
+                saveData(data);
+                msg.reply(`Minggu semester berhasil diubah menjadi minggu ke-${mingguBaru}.`);
+            } else {
+                msg.reply('Format salah. Contoh penggunaan: .setminggu 2 (Maksimal 16)');
+            }
+        }
+
+        // Fitur reset database (untuk memulai semester baru)
+        if (msg.body.toLowerCase().startsWith('.resetbot')) {
+            const parts = msg.body.split(' ');
+            let semesterBaru = 1; // Default
+            if (parts.length > 1 && !isNaN(parseInt(parts[1]))) {
+                semesterBaru = parseInt(parts[1]);
+            }
+
+            let data = {
+                minggu_ke: 1,
+                semester: semesterBaru,
+                jadwal: {}
+            };
             saveData(data);
-            msg.reply(`Minggu semester berhasil diubah menjadi minggu ke-${mingguBaru}.`);
-        } else {
-            msg.reply('Format salah. Contoh penggunaan: .setminggu 2 (Maksimal 16)');
-        }
-    }
-
-    // Fitur reset database (untuk memulai semester baru)
-    if (msg.body.startsWith('.resetbot')) {
-        if (!isAdmin) {
-            msg.reply('Mohon Maaf, fitur ini hanya bisa digunakan oleh admin!!');
-            return;
-        }
-        const parts = msg.body.split(' ');
-        let semesterBaru = 1; // Default
-        if (parts.length > 1 && !isNaN(parseInt(parts[1]))) {
-            semesterBaru = parseInt(parts[1]);
+            msg.reply(`Database berhasil direset!\n\nSelamat datang di *Semester ${semesterBaru}*. Sistem telah dikembalikan ke *Minggu ke-1* dan seluruh histori absensi semester lama telah dihapus.`);
         }
 
-        let data = {
-            minggu_ke: 1,
-            semester: semesterBaru,
-            jadwal: {}
-        };
-        saveData(data);
-        msg.reply(`Database berhasil direset!\n\nSelamat datang di *Semester ${semesterBaru}*. Sistem telah dikembalikan ke *Minggu ke-1* dan seluruh histori absensi semester lama telah dihapus.`);
+        // Fitur .testabsen (hanya admin)
+        if (msg.body.toLowerCase() === '.testabsen') {
+            msg.reply('Memulai proses pengecekan portal Ethol secara manual... Silakan tunggu beberapa saat.');
+            try {
+                await checkPortal();
+                msg.reply('Proses pengecekan manual selesai!');
+            } catch (err) {
+                console.error(err);
+                msg.reply('Terjadi kesalahan saat mengecek portal.');
+            }
+        }
     }
 
     // Fitur .admin
@@ -310,24 +323,24 @@ async function checkPortal() {
         // 5. LOGIKA SCRAPING DATA ABSENSI
         const daftarAbsenTerbuka = await page.evaluate(() => {
             let hasil = [];
-            
+
             // Mencari semua elemen teks di layar
             const elemenTeks = Array.from(document.querySelectorAll('*'));
-            
+
             for (let el of elemenTeks) {
                 // Hanya ambil elemen yang tidak punya anak elemen lain (elemen teks terdalam)
                 if (el.children.length === 0 && el.textContent) {
                     let teks = el.textContent.trim();
-                    
+
                     // Mencocokkan dengan kalimat di screenshot notifikasi Anda
                     const pola = "Dosen telah melakukan presensi untuk matakuliah";
                     if (teks.includes(pola)) {
                         // Mengambil teks nama mata kuliah yang berada setelah pola kalimat
                         let namaMatkul = teks.split(pola)[1].trim();
-                        
+
                         // Gunakan tanggal hari ini sebagai penanda (karena bot mengecek tiap jam)
                         let tanggalHariIni = new Date().toLocaleDateString('id-ID');
-                        
+
                         // Cegah duplikasi di array hasil
                         if (!hasil.find(h => h.matkul === namaMatkul)) {
                             hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
