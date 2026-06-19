@@ -94,12 +94,33 @@ client.on('qr', (qr) => {
 client.on('ready', () => {
     console.log('Bot WhatsApp sudah siap dan terhubung!');
 
-    // Menjadwalkan pengecekan web setiap 1 jam (bisa disesuaikan)
-    // Format Cron: Menit Jam Tanggal Bulan Hari
-    cron.schedule('0 * * * *', () => {
-        console.log('Menjalankan pengecekan portal kampus...');
-        checkPortal();
-    });
+    // Fungsi untuk menjadwalkan pengecekan dengan jeda waktu acak
+    function scheduleRandomCheck() {
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // Hanya jalankan jika waktu berada antara jam 05:00 dan 21:00 (5 pagi - 9 malam)
+        if (currentHour >= 5 && currentHour <= 21) {
+            console.log('Menjalankan pengecekan portal kampus secara acak...');
+            checkPortal();
+        } else {
+            console.log(`[${now.toLocaleTimeString('id-ID')}] Di luar jam kerja (05:00 - 21:00). Pengecekan ditunda.`);
+        }
+
+        // Hitung jeda acak untuk pengecekan berikutnya (antara 45 menit sampai 90 menit)
+        // 45 menit = 2700000 ms, 90 menit = 5400000 ms
+        const minMs = 45 * 60 * 1000;
+        const maxMs = 90 * 60 * 1000;
+        const randomDelay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+
+        const nextRun = new Date(now.getTime() + randomDelay);
+        console.log(`[Jadwal] Pengecekan berikutnya pada: ${nextRun.toLocaleTimeString('id-ID')} (Jeda: ${Math.round(randomDelay/60000)} menit)`);
+
+        setTimeout(scheduleRandomCheck, randomDelay);
+    }
+
+    // Memulai penjadwalan acak untuk pertama kalinya
+    scheduleRandomCheck();
 
     // Menjadwalkan pergantian minggu otomatis setiap hari Senin jam 00:00
     cron.schedule('0 0 * * 1', () => {
