@@ -117,6 +117,24 @@ client.on('ready', () => {
 
 // Mendengarkan pesan masuk (berguna untuk mencari Group ID)
 client.on('message', async msg => {
+    // === FITUR ANTI-BLOKIR (Jeda & Mengetik) ===
+    const originalReply = msg.reply.bind(msg);
+    msg.reply = async (content, chatId, options) => {
+        try {
+            const chat = await msg.getChat();
+            await chat.sendStateTyping();
+            
+            // Jeda acak antara 1,5 hingga 3,5 detik
+            const delay = Math.floor(Math.random() * 2000) + 1500;
+            await new Promise(resolve => setTimeout(resolve, delay));
+            
+            await chat.clearState();
+            return await originalReply(content, chatId, options);
+        } catch (err) {
+            return await originalReply(content, chatId, options);
+        }
+    };
+    // ============================================
     // Respons panggilan "bot"
     if (msg.body.toLowerCase() === 'bot') {
         msg.reply("Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\nsilahkan ketik .menu untuk melihat menu apa saja pada smartbot ini");
@@ -174,7 +192,7 @@ client.on('message', async msg => {
     const isAdmin = senderId.includes('85704682918') || senderId.includes('194720949112994');
 
     // Fitur mengubah minggu semester yang aktif (maksimal 16)
-    if (msg.body.startsWith('.setminggu ') || msg.body.startsWith('.resetbot') || msg.body.startsWith('.testabsen')) {
+    if (msg.body.startsWith('.setminggu ') || msg.body.startsWith('.resetbot') || msg.body.startsWith('.testabsen') || msg.body.startsWith('.testnotif')) {
         if (!isAdmin) {
             msg.reply('Mohon Maaf, fitur ini hanya bisa digunakan oleh admin!!');
             return;
@@ -221,6 +239,20 @@ client.on('message', async msg => {
                 msg.reply('Terjadi kesalahan saat mengecek portal.');
             }
         }
+
+        // Fitur .testnotif (hanya admin) - Simulasi notifikasi untuk testimoni
+        if (msg.body.toLowerCase().startsWith('.testnotif')) {
+            let matkul = msg.body.split(' ').slice(1).join(' ') || 'Pemrograman Web (Uji Coba)';
+            let tanggal = new Date().toLocaleDateString('id-ID');
+            msg.reply('Mengirim pesan simulasi absensi ke grup...');
+            
+            try {
+                await announceAbsen(client, TARGET_GROUP_ID, matkul, tanggal);
+            } catch (err) {
+                console.error('Gagal saat simulasi:', err);
+                msg.reply('Terjadi kesalahan saat mengirim simulasi.');
+            }
+        }
     }
 
     // Fitur .admin
@@ -260,7 +292,7 @@ client.on('message', async msg => {
                 await client.sendMessage(msg.from, media, {
                     sendMediaAsSticker: true,
                     stickerName: 'Bot Stiker', // Nama stiker
-                    stickerAuthor: 'Botwaku'   // Author stiker
+                    stickerAuthor: 'RzkyAds'   // Author stiker
                 });
             } catch (err) {
                 console.error('Gagal mengirim stiker:', err);
