@@ -66,8 +66,20 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
 // Menggunakan LocalAuth agar Anda tidak perlu scan QR setiap kali bot dijalankan
 const client = new Client({
     authStrategy: new LocalAuth(),
+    authTimeoutMs: 300000, // Tambahan waktu tunggu hingga 5 menit
     puppeteer: {
-        args: ['--no-sandbox']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage', // Mencegah crash memori di VPS
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', // Sangat penting untuk VPS RAM 1GB
+            '--disable-gpu'
+        ],
+        timeout: 0,
+        protocolTimeout: 300000 // Menghindari error Runtime.callFunctionOn timed out
     }
 });
 
