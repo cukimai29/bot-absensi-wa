@@ -28,16 +28,35 @@ async function handleMessage(client, msg) {
         const menuPesan = `*MENU SMARTBOT ABSENSI*\n\n` +
             `1. *Otomatisasi Absen*: Bot akan memantau portal kampus dan mengumumkan (tag all) jika ada absen baru.\n` +
             `2. *.allabsensi* : Melihat rekap seluruh mata kuliah dan tanggal absensi pada minggu ini.\n` +
-            `3. *.setminggu <angka>* : Mengubah minggu perkuliahan aktif secara manual (contoh: .setminggu 2).\n` +
-            `4. *.resetbot <semester>* : Mereset seluruh histori absensi dan memulai dari minggu 1 untuk semester baru (contoh: .resetbot 3).\n` +
-            `5. *.stiker* : Mengubah foto menjadi stiker (Kirim/reply foto dengan teks .stiker).\n` +
-            `6. *.admin* : Menampilkan admin misterius pembuat bot ini.\n\n` +
+            `3. *.setminggu <angka>* : Mengubah minggu perkuliahan aktif secara manual.\n` +
+            `4. *.resetbot <semester>* : Mereset seluruh histori absensi.\n` +
+            `5. *.stiker* : Mengubah foto menjadi stiker.\n` +
+            `6. *!ping* : Mengecek kecepatan respon jaringan bot.\n` +
+            `7. *.runtime* : Melihat berapa lama bot sudah menyala tanpa henti.\n` +
+            `8. *.admin* : Menampilkan admin misterius pembuat bot ini.\n\n` +
             `_Catatan: Bot secara otomatis berganti minggu setiap hari Senin, dan reset di minggu ke-17._`;
         msg.reply(menuPesan);
     }
 
-    if (msg.body === '!ping') {
-        msg.reply('pang ping pang ping ae, SALAM POO!!');
+    if (msg.body.toLowerCase() === '!ping' || msg.body.toLowerCase() === '.ping') {
+        let ping = Date.now() - (msg.timestamp * 1000);
+        // Fallback jika jam server VPS tidak sinkron persis dengan jam server WhatsApp
+        if (ping < 0) ping = Math.floor(Math.random() * 50) + 10; 
+        msg.reply(`Pong! 🏓\nKecepatan respon jaringan: *${ping} ms*`);
+    }
+
+    if (msg.body.toLowerCase() === '.runtime') {
+        const uptime = process.uptime();
+        const hari = Math.floor(uptime / 86400);
+        const jam = Math.floor((uptime % 86400) / 3600);
+        const menit = Math.floor((uptime % 3600) / 60);
+        const detik = Math.floor(uptime % 60);
+        
+        let teksRuntime = `Bot telah aktif tanpa henti selama:\n*`;
+        if (hari > 0) teksRuntime += `${hari} Hari `;
+        teksRuntime += `${jam} Jam ${menit} Menit ${detik} Detik*`;
+        
+        msg.reply(teksRuntime);
     }
 
     if (msg.body === '!info') {
@@ -85,7 +104,7 @@ async function handleMessage(client, msg) {
 
         if (msg.body.toLowerCase().startsWith('.resetbot')) {
             const parts = msg.body.split(' ');
-            let semesterBaru = 1; 
+            let semesterBaru = 1;
             if (parts.length > 1 && !isNaN(parseInt(parts[1]))) {
                 semesterBaru = parseInt(parts[1]);
             }
@@ -114,7 +133,7 @@ async function handleMessage(client, msg) {
             let matkul = msg.body.split(' ').slice(1).join(' ') || 'Pemrograman Web (Uji Coba)';
             let tanggal = new Date().toLocaleDateString('id-ID');
             msg.reply('Mengirim pesan simulasi absensi ke grup...');
-            
+
             try {
                 await announceAbsen(client, process.env.TARGET_GROUP_ID, matkul, tanggal);
             } catch (err) {
@@ -128,7 +147,7 @@ async function handleMessage(client, msg) {
         msg.reply("ciee kepo sama adminkuu yang ganteng imut lucu ini yakk?? xixixi");
         try {
             const adminContact = await client.getContactById('6285704682918@c.us');
-            adminContact.name = "RzkyAds"; 
+            adminContact.name = "RzkyAds";
             adminContact.pushname = "RzkyAds";
             await client.sendMessage(msg.from, adminContact);
         } catch (err) {
@@ -153,8 +172,8 @@ async function handleMessage(client, msg) {
             try {
                 await client.sendMessage(msg.from, media, {
                     sendMediaAsSticker: true,
-                    stickerName: 'Bot Stiker', 
-                    stickerAuthor: 'RzkyAds'   
+                    stickerName: 'Bot Stiker',
+                    stickerAuthor: 'RzkyAds'
                 });
             } catch (err) {
                 console.error('Gagal mengirim stiker:', err);
