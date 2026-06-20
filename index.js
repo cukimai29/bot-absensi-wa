@@ -362,6 +362,9 @@ async function checkPortal() {
         ]
     });
     const page = await browser.newPage();
+    
+    // Perpanjang waktu tunggu (timeout) menjadi 2 menit agar VPS punya cukup waktu memuat web
+    page.setDefaultNavigationTimeout(120000); 
 
     try {
         // 1. GANTI BAGIAN INI: URL Login Kampus
