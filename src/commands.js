@@ -194,10 +194,15 @@ async function handleMessage(client, msg) {
         // Urutkan berdasarkan deadline terdekat
         tugas.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
         
+        let nowWIB = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"}));
+        nowWIB.setHours(0,0,0,0);
+        
         tugas.forEach((t, i) => {
-            // Hitung sisa hari
-            let sisaHari = Math.ceil((new Date(t.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-            let sisaTeks = sisaHari < 0 ? "*(TERLEWAT)*" : sisaHari === 0 ? "*(HARI INI)*" : sisaHari === 1 ? "*(BESOK)*" : `(${sisaHari} hari lagi)`;
+            // Hitung sisa hari dengan timezone yang benar
+            let targetDate = new Date(t.deadline);
+            targetDate.setHours(0,0,0,0);
+            let sisaHari = Math.round((targetDate - nowWIB) / (1000 * 60 * 60 * 24));
+            let sisaTeks = sisaHari < 0 ? "*(TERLEWAT)*" : sisaHari === 0 ? "*(HARI INI)*" : sisaHari === 1 ? "*(H-1/BESOK)*" : sisaHari === 2 ? "*(H-2)*" : `(${sisaHari} hari lagi)`;
             pesan += `${i+1}. *${t.matkul}*\n   📝 ${t.deskripsi}\n   📅 Deadline: ${t.deadline} ${sisaTeks}\n\n`;
         });
         msg.reply(pesan);

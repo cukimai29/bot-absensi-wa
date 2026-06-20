@@ -93,7 +93,7 @@ client.on('ready', () => {
         let pesanReminder = "";
         let count = 0;
         
-        // Buat tanggal hari ini dan besok dengan zona waktu Asia/Jakarta
+        // Buat tanggal hari ini, besok, dan lusa dengan zona waktu Asia/Jakarta
         let now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"}));
         let hrIniStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
         
@@ -101,9 +101,13 @@ client.on('ready', () => {
         besok.setDate(besok.getDate() + 1);
         let besokTgl = besok.getFullYear() + "-" + String(besok.getMonth()+1).padStart(2, '0') + "-" + String(besok.getDate()).padStart(2, '0');
 
+        let lusa = new Date(now);
+        lusa.setDate(lusa.getDate() + 2);
+        let lusaTgl = lusa.getFullYear() + "-" + String(lusa.getMonth()+1).padStart(2, '0') + "-" + String(lusa.getDate()).padStart(2, '0');
+
         tugas.forEach(t => {
-            if (t.deadline === besokTgl || t.deadline === hrIniStr) {
-                let sisa = t.deadline === hrIniStr ? "*(HARI INI!)*" : "*(BESOK)*";
+            if (t.deadline === lusaTgl || t.deadline === besokTgl || t.deadline === hrIniStr) {
+                let sisa = t.deadline === hrIniStr ? "*(HARI INI!)*" : (t.deadline === besokTgl ? "*(H-1/BESOK)*" : "*(H-2)*");
                 pesanReminder += `- *${t.matkul}*: ${t.deskripsi} ${sisa}\n`;
                 count++;
             }
