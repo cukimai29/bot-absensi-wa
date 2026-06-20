@@ -1,12 +1,17 @@
 const { loadData, saveData } = require('./database');
 const { checkPortal, announceAbsen } = require('./ethol-scraper');
 const { GoogleGenAI } = require('@google/genai');
+const googleTTS = require('google-tts-api');
+const { MessageMedia } = require('whatsapp-web.js');
 
 // Inisialisasi AI (Hanya aktif jika GEMINI_API_KEY tersedia di .env)
 let ai = null;
 if (process.env.GEMINI_API_KEY) {
     ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 }
+
+// State untuk menyimpan sesi game grup
+const activeGames = {};
 
 async function handleMessage(client, msg) {
     const originalReply = msg.reply.bind(msg);
@@ -23,6 +28,14 @@ async function handleMessage(client, msg) {
         }
     };
 
+    if (activeGames[msg.to]) {
+        let game = activeGames[msg.to];
+        if (msg.body.toLowerCase() === game.jawaban) {
+            msg.reply(`🎉 BENAR SEKALI!\n\nSelamat, tebakan kata *${game.jawaban.toUpperCase()}* sangat tepat!\n(Game Selesai)`);
+            delete activeGames[msg.to];
+        }
+    }
+
     if (msg.body.toLowerCase() === 'bot') {
         msg.reply("Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_");
     }
@@ -33,26 +46,30 @@ async function handleMessage(client, msg) {
 
     if (msg.body.toLowerCase() === '.menu') {
         const menuPesan = `*MENU SMARTBOT ABSENSI*\n\n` +
-            `*📚 PRODUKTIVITAS KELAS*\n` +
-            `1. *.jadwal* : Menampilkan jadwal kuliah (contoh: .jadwal atau .jadwal senin).\n` +
-            `2. *.tugas* : Menampilkan daftar tugas yang belum selesai.\n` +
-            `3. *.tanya <teks>* : Bertanya apa saja ke AI Pintar (ChatGPT versi Google).\n` +
-            `4. *.cuaca <kota>* : Mengecek kondisi cuaca di kota tertentu.\n\n` +
+            `*📚 PRODUKTIVITAS & HIBURAN*\n` +
+            `1. *.jadwal* : Menampilkan jadwal kuliah.\n` +
+            `2. *.tugas* : Menampilkan daftar tugas.\n` +
+            `3. *.tanya <teks>* : Bertanya ke AI Pintar.\n` +
+            `4. *.cuaca <kota>* : Mengecek kondisi cuaca.\n` +
+            `5. *.suara <teks>* : Teks jadi Voice Note.\n` +
+            `6. *.ringkas* : (Reply pesan) Ringkas teks panjang.\n` +
+            `7. *.tl <id/en>* : (Reply pesan) Translate teks.\n` +
+            `8. *.susunkata* : Main tebak kata acak di grup.\n\n` +
             `*🔧 FITUR UTAMA*\n` +
-            `5. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen baru.\n` +
-            `6. *.allabsensi* : Rekap mata kuliah & tanggal absen minggu ini.\n` +
-            `7. *.stiker* : Mengubah foto menjadi stiker.\n` +
-            `8. *!ping* : Mengecek kecepatan respon jaringan bot.\n` +
-            `9. *.runtime* : Melihat lama bot menyala tanpa henti.\n` +
-            `10. *.owner* : Menampilkan info owner bot.\n\n` +
+            `9. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.\n` +
+            `10. *.allabsensi* : Rekap absen minggu ini.\n` +
+            `11. *.stiker* : Mengubah foto menjadi stiker.\n` +
+            `12. *!ping* : Mengecek kecepatan respon bot.\n` +
+            `13. *.runtime* : Melihat uptime bot.\n` +
+            `14. *.owner* : Menampilkan info owner bot.\n\n` +
             `*👑 KHUSUS ADMIN GRUP*\n` +
-            `11. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
-            `12. *.hapus_tugas <Nomor>*\n` +
-            `13. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
-            `14. *.hidetag <Pesan>*\n` +
-            `15. *.setminggu <Angka>*\n\n` +
+            `15. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
+            `16. *.hapus_tugas <Nomor>*\n` +
+            `17. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
+            `18. *.hidetag <Pesan>*\n` +
+            `19. *.setminggu <Angka>*\n\n` +
             `*👑 KHUSUS OWNER*\n` +
-            `16. *.resetbot <Semester>*\n\n` +
+            `20. *.resetbot <Semester>*\n\n` +
             `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
     }
@@ -351,6 +368,81 @@ async function handleMessage(client, msg) {
             let participants = chat.participants.map(p => p.id._serialized);
             await chat.sendMessage(`🔊 *PENGUMUMAN*\n\n${pesanTeks}`, { mentions: participants });
         }
+    }
+
+    if (msg.body.toLowerCase().startsWith('.suara')) {
+        let teks = msg.body.substring('.suara'.length).trim();
+        let lang = 'id';
+        if (teks.startsWith('id ') || teks.startsWith('en ') || teks.startsWith('ja ') || teks.startsWith('ko ')) {
+            lang = teks.substring(0, 2);
+            teks = teks.substring(3).trim();
+        }
+        if (!teks) {
+            msg.reply('Kirim perintah dengan format *.suara <teks>* atau *.suara en <teks>*');
+            return;
+        }
+        if (teks.length > 200) {
+            msg.reply('Teks terlalu panjang! Maksimal 200 karakter.');
+            return;
+        }
+        try {
+            const url = googleTTS.getAudioUrl(teks, { lang: lang, slow: false, host: 'https://translate.google.com' });
+            const media = await MessageMedia.fromUrl(url, { unsafeMime: true });
+            await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
+        } catch (err) {
+            console.error(err);
+            msg.reply('Terjadi kesalahan saat membuat voice note.');
+        }
+    }
+
+    if (msg.body.toLowerCase() === '.ringkas' && msg.hasQuotedMsg) {
+        if (!ai) {
+            msg.reply('Fitur AI belum aktif.');
+            return;
+        }
+        const quotedMsg = await msg.getQuotedMessage();
+        msg.reply('⏳ AI sedang meringkas pesan ini, mohon tunggu...');
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Buatkan ringkasan singkat dalam bentuk poin-poin dari teks ini:\n\n${quotedMsg.body}`,
+            });
+            msg.reply(`*🤖 Ringkasan AI:*\n\n${response.text}`);
+        } catch (err) {
+            msg.reply('Maaf, AI gagal meringkas teks tersebut.');
+        }
+    }
+
+    if (msg.body.toLowerCase().startsWith('.tl ') && msg.hasQuotedMsg) {
+        if (!ai) {
+            msg.reply('Fitur AI belum aktif.');
+            return;
+        }
+        let lang = msg.body.substring('.tl '.length).trim() || 'indonesia';
+        const quotedMsg = await msg.getQuotedMessage();
+        msg.reply(`⏳ AI sedang menerjemahkan pesan ini ke bahasa *${lang}*...`);
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Terjemahkan teks berikut secara natural ke bahasa ${lang}:\n\n${quotedMsg.body}`,
+            });
+            msg.reply(`*🤖 Terjemahan AI:*\n\n${response.text}`);
+        } catch (err) {
+            msg.reply('Maaf, AI gagal menerjemahkan teks tersebut.');
+        }
+    }
+
+    if (msg.body.toLowerCase() === '.susunkata') {
+        if (activeGames[msg.to]) {
+            msg.reply('Masih ada permainan yang belum diselesaikan di grup ini!\nSusun huruf ini: *' + activeGames[msg.to].acak + '*');
+            return;
+        }
+        const words = ['javascript', 'database', 'pemrograman', 'komputer', 'internet', 'algoritma', 'jaringan', 'server', 'aplikasi', 'framework', 'skripsi', 'mahasiswa', 'dosen', 'kampus'];
+        let word = words[Math.floor(Math.random() * words.length)];
+        let acak = word.split('').sort(() => 0.5 - Math.random()).join(' ').toUpperCase();
+        
+        activeGames[msg.to] = { jawaban: word, acak: acak };
+        msg.reply(`🎮 *MINI GAME SUSUN KATA* 🎮\n\nSusunlah huruf-huruf acak berikut menjadi sebuah kata terkait dunia kampus/IT:\n\n👉 *${acak}* 👈\n\nSiapa cepat dia dapat! Silakan langsung ketik jawabannya di grup.`);
     }
 
     if (msg.body.toLowerCase() === '.owner') {
