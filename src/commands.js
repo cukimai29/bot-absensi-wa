@@ -28,11 +28,13 @@ async function handleMessage(client, msg) {
         }
     };
 
-    if (activeGames[msg.to]) {
-        let game = activeGames[msg.to];
+    const chatId = msg.from;
+
+    if (activeGames[chatId]) {
+        let game = activeGames[chatId];
         if (msg.body.toLowerCase() === game.jawaban) {
             msg.reply(`🎉 BENAR SEKALI!\n\nSelamat, tebakan kata *${game.jawaban.toUpperCase()}* sangat tepat!\n(Game Selesai)`);
-            delete activeGames[msg.to];
+            delete activeGames[chatId];
         }
     }
 
@@ -433,16 +435,17 @@ async function handleMessage(client, msg) {
     }
 
     if (msg.body.toLowerCase() === '.susunkata') {
-        if (activeGames[msg.to]) {
-            msg.reply('Masih ada permainan yang belum diselesaikan di grup ini!\nSusun huruf ini: *' + activeGames[msg.to].acak + '*');
+        const chatId = msg.from;
+        if (activeGames[chatId]) {
+            msg.reply('Masih ada permainan yang belum diselesaikan di obrolan ini!\nSusun huruf ini: *' + activeGames[chatId].acak + '*');
             return;
         }
         const words = ['javascript', 'database', 'pemrograman', 'komputer', 'internet', 'algoritma', 'jaringan', 'server', 'aplikasi', 'framework', 'skripsi', 'mahasiswa', 'dosen', 'kampus'];
         let word = words[Math.floor(Math.random() * words.length)];
         let acak = word.split('').sort(() => 0.5 - Math.random()).join(' ').toUpperCase();
         
-        activeGames[msg.to] = { jawaban: word, acak: acak };
-        msg.reply(`🎮 *MINI GAME SUSUN KATA* 🎮\n\nSusunlah huruf-huruf acak berikut menjadi sebuah kata terkait dunia kampus/IT:\n\n👉 *${acak}* 👈\n\nSiapa cepat dia dapat! Silakan langsung ketik jawabannya di grup.`);
+        activeGames[chatId] = { jawaban: word, acak: acak };
+        msg.reply(`🎮 *MINI GAME SUSUN KATA* 🎮\n\nSusunlah huruf-huruf acak berikut menjadi sebuah kata terkait dunia kampus/IT:\n\n👉 *${acak}* 👈\n\nSiapa cepat dia dapat! Silakan langsung ketik jawabannya di sini.`);
     }
 
     if (msg.body.toLowerCase() === '.owner') {
