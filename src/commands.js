@@ -24,19 +24,7 @@ async function handleMessage(client, msg) {
     };
 
     if (msg.body.toLowerCase() === 'bot') {
-        try {
-            const { Buttons } = require('whatsapp-web.js');
-            const button = new Buttons(
-                "Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\nSilakan tekan tombol *MENU* di bawah ini:", 
-                [{body: '.menu'}], 
-                'SMARTBOT ABSENSI', 
-                'Tekan tombol di bawah'
-            );
-            msg.reply(button);
-        } catch (err) {
-            // Fallback jika HP penerima tidak mendukung tombol
-            msg.reply("Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\nSilakan tekan tombol/ketik *.menu* untuk melihat fitur smartbot ini.");
-        }
+        msg.reply("Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_");
     }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {
