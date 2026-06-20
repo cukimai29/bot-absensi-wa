@@ -44,13 +44,14 @@ async function handleMessage(client, msg) {
             `7. *.stiker* : Mengubah foto menjadi stiker.\n` +
             `8. *!ping* : Mengecek kecepatan respon jaringan bot.\n` +
             `9. *.runtime* : Melihat lama bot menyala tanpa henti.\n` +
-            `10. *.admin* : Menampilkan info admin.\n\n` +
-            `*👑 KHUSUS ADMIN*\n` +
+            `10. *.owner* : Menampilkan info owner bot.\n\n` +
+            `*👑 KHUSUS ADMIN GRUP*\n` +
             `11. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
             `12. *.hapus_tugas <Nomor>*\n` +
             `13. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
             `14. *.hidetag <Pesan>*\n` +
-            `15. *.setminggu <Angka>*\n` +
+            `15. *.setminggu <Angka>*\n\n` +
+            `*👑 KHUSUS OWNER*\n` +
             `16. *.resetbot <Semester>*\n\n` +
             `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
@@ -184,11 +185,33 @@ async function handleMessage(client, msg) {
     }
 
     const senderId = msg.author || msg.from || '';
-    const isAdmin = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944');
+    const isOwner = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944');
 
-    if (msg.body.startsWith('.setminggu ') || msg.body.startsWith('.resetbot') || msg.body.startsWith('.testabsen') || msg.body.startsWith('.testnotif') || msg.body.startsWith('.jadwaledit') || msg.body.startsWith('.tambah_tugas') || msg.body.startsWith('.hapus_tugas') || msg.body.startsWith('.hidetag')) {
-        if (!isAdmin) {
-            msg.reply('Mohon Maaf, fitur ini hanya bisa digunakan oleh admin!!');
+    const adminCommands = ['.setminggu', '.testabsen', '.testnotif', '.jadwaledit', '.tambah_tugas', '.hapus_tugas', '.hidetag'];
+    const isCmdAdmin = adminCommands.some(cmd => msg.body.toLowerCase().startsWith(cmd));
+    const isCmdOwner = msg.body.toLowerCase().startsWith('.resetbot');
+
+    if (isCmdAdmin || isCmdOwner) {
+        let isGroupAdmin = false;
+        try {
+            const chat = await msg.getChat();
+            if (chat.isGroup) {
+                const participant = chat.participants.find(p => p.id._serialized === senderId);
+                if (participant && (participant.isAdmin || participant.isSuperAdmin)) {
+                    isGroupAdmin = true;
+                }
+            }
+        } catch (e) {}
+
+        const hasAdminAccess = isOwner || isGroupAdmin;
+
+        if (isCmdOwner && !isOwner) {
+            msg.reply('Mohon Maaf, fitur ini khusus untuk *Owner* bot!');
+            return;
+        }
+
+        if (isCmdAdmin && !hasAdminAccess) {
+            msg.reply('Mohon Maaf, fitur ini khusus untuk *Admin Grup* atau *Owner* bot!');
             return;
         }
 
@@ -330,16 +353,16 @@ async function handleMessage(client, msg) {
         }
     }
 
-    if (msg.body.toLowerCase() === '.admin') {
-        msg.reply("ciee kepo sama adminkuu yang ganteng imut lucu ini yakk?? xixixi");
+    if (msg.body.toLowerCase() === '.owner') {
+        msg.reply("ciee kepo sama ownerkuu yang ganteng imut lucu ini yakk?? xixixi");
         try {
-            const adminContact = await client.getContactById('6285704682918@c.us');
-            adminContact.name = "RzkyAds";
-            adminContact.pushname = "RzkyAds";
-            await client.sendMessage(msg.from, adminContact);
+            const ownerContact = await client.getContactById('6285704682918@c.us');
+            ownerContact.name = "RzkyAds";
+            ownerContact.pushname = "RzkyAds";
+            await client.sendMessage(msg.from, ownerContact);
         } catch (err) {
-            console.error('Gagal mengirim kontak admin:', err);
-            msg.reply('Nomor Admin (RzkyAds): 085704682918');
+            console.error('Gagal mengirim kontak owner:', err);
+            msg.reply('Nomor Owner (RzkyAds): 085704682918');
         }
     }
 
