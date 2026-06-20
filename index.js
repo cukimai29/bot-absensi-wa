@@ -83,6 +83,41 @@ client.on('ready', () => {
 
         client.sendMessage(process.env.TARGET_GROUP_ID, pesan).catch(err => console.error("Gagal mengirim pengumuman ganti minggu:", err));
     });
+
+    // Cron job untuk pengingat tugas kelas setiap hari jam 16:00 WIB
+    cron.schedule('0 16 * * *', () => {
+        let data = loadData();
+        let tugas = data.daftar_tugas || [];
+        if (tugas.length === 0) return;
+
+        let pesanReminder = "";
+        let count = 0;
+        
+        // Buat tanggal hari ini dan besok dengan zona waktu Asia/Jakarta
+        let now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"}));
+        let hrIniStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+        
+        let besok = new Date(now);
+        besok.setDate(besok.getDate() + 1);
+        let besokTgl = besok.getFullYear() + "-" + String(besok.getMonth()+1).padStart(2, '0') + "-" + String(besok.getDate()).padStart(2, '0');
+
+        tugas.forEach(t => {
+            if (t.deadline === besokTgl || t.deadline === hrIniStr) {
+                let sisa = t.deadline === hrIniStr ? "*(HARI INI!)*" : "*(BESOK)*";
+                pesanReminder += `- *${t.matkul}*: ${t.deskripsi} ${sisa}\n`;
+                count++;
+            }
+        });
+
+        if (count > 0) {
+            let pesanAkhir = `🚨 *REMINDER TUGAS KELAS* 🚨\n\nPerhatian semuanya, ada ${count} tugas yang mendesak untuk segera diselesaikan:\n\n${pesanReminder}\nMohon segera dikerjakan ya! Ketik *.tugas* untuk melihat seluruh daftar tugas.`;
+            client.sendMessage(process.env.TARGET_GROUP_ID, pesanAkhir).catch(console.error);
+            console.log(`[Pengingat Tugas] Berhasil mengirim peringatan untuk ${count} tugas.`);
+        }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
 });
 
 client.on('message', async msg => {

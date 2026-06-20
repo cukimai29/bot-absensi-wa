@@ -33,17 +33,19 @@ async function handleMessage(client, msg) {
 
     if (msg.body.toLowerCase() === '.menu') {
         const menuPesan = `*MENU SMARTBOT ABSENSI*\n\n` +
-            `1. *Otomatisasi Absen*: Bot akan memantau portal kampus dan mengumumkan (tag all) jika ada absen baru.\n` +
-            `2. *.allabsensi* : Melihat rekap seluruh mata kuliah dan tanggal absensi pada minggu ini.\n` +
-            `3. *.setminggu <angka>* : Mengubah minggu perkuliahan aktif secara manual.\n` +
-            `4. *.resetbot <semester>* : Mereset seluruh histori absensi.\n` +
-            `5. *.stiker* : Mengubah foto menjadi stiker.\n` +
-            `6. *!ping* : Mengecek kecepatan respon jaringan bot.\n` +
-            `7. *.runtime* : Melihat berapa lama bot sudah menyala tanpa henti.\n` +
-            `8. *.jadwal* : Menampilkan jadwal kuliah (contoh: .jadwal atau .jadwal senin).\n` +
-            `9. *.tanya <teks>* : Bertanya apa saja ke AI Pintar (ChatGPT versi Google).\n` +
-            `10. *.admin* : Menampilkan admin misterius pembuat bot ini.\n\n` +
-            `_Catatan: Bot secara otomatis berganti minggu setiap hari Senin, dan reset di minggu ke-17._`;
+            `*📚 PRODUKTIVITAS KELAS*\n` +
+            `1. *.jadwal* : Menampilkan jadwal kuliah (contoh: .jadwal atau .jadwal senin).\n` +
+            `2. *.tugas* : Menampilkan daftar tugas yang belum selesai.\n` +
+            `3. *.tanya <teks>* : Bertanya apa saja ke AI Pintar (ChatGPT versi Google).\n` +
+            `4. *.cuaca <kota>* : Mengecek kondisi cuaca di kota tertentu.\n\n` +
+            `*🔧 FITUR UTAMA*\n` +
+            `5. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen baru.\n` +
+            `6. *.allabsensi* : Rekap mata kuliah & tanggal absen minggu ini.\n` +
+            `7. *.stiker* : Mengubah foto menjadi stiker.\n` +
+            `8. *!ping* : Mengecek kecepatan respon jaringan bot.\n` +
+            `9. *.runtime* : Melihat lama bot menyala tanpa henti.\n` +
+            `10. *.admin* : Menampilkan info admin.\n\n` +
+            `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
     }
 
@@ -134,10 +136,50 @@ async function handleMessage(client, msg) {
         msg.reply(pesan);
     }
 
+    if (msg.body.toLowerCase().startsWith('.cuaca')) {
+        let kota = msg.body.substring('.cuaca'.length).trim() || 'Surabaya';
+        msg.reply(`☁️ Mengecek cuaca untuk *${kota}*...`);
+        try {
+            // Menggunakan API wttr.in gratis tanpa key
+            const fetch = require('node-fetch');
+            const response = await fetch(`https://wttr.in/${encodeURIComponent(kota)}?format=%l:+%c+%C,+Suhu:+%t,+Angin:+%w`);
+            const data = await response.text();
+            if (data.includes('Unknown location')) {
+                msg.reply(`Maaf, kota *${kota}* tidak ditemukan.`);
+            } else {
+                msg.reply(`*Info Cuaca:*\n${data}`);
+            }
+        } catch (err) {
+            msg.reply('Terjadi kesalahan saat mengambil data cuaca.');
+        }
+    }
+
+    if (msg.body.toLowerCase() === '.tugas') {
+        let data = loadData();
+        let tugas = data.daftar_tugas || [];
+        
+        if (tugas.length === 0) {
+            msg.reply("🎉 Yeay! Tidak ada tugas kelas yang perlu dikerjakan saat ini.");
+            return;
+        }
+
+        let pesan = `*📚 DAFTAR TUGAS KELAS*\n\n`;
+        // Urutkan berdasarkan deadline terdekat
+        tugas.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+        
+        tugas.forEach((t, i) => {
+            // Hitung sisa hari
+            let sisaHari = Math.ceil((new Date(t.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+            let sisaTeks = sisaHari < 0 ? "*(TERLEWAT)*" : sisaHari === 0 ? "*(HARI INI)*" : sisaHari === 1 ? "*(BESOK)*" : `(${sisaHari} hari lagi)`;
+            pesan += `${i+1}. *${t.matkul}*\n   📝 ${t.deskripsi}\n   📅 Deadline: ${t.deadline} ${sisaTeks}\n\n`;
+        });
+        msg.reply(pesan);
+    }
+
     const senderId = msg.author || msg.from || '';
     const isAdmin = senderId.includes('85704682918') || senderId.includes('194720949112994');
 
-    if (msg.body.startsWith('.setminggu ') || msg.body.startsWith('.resetbot') || msg.body.startsWith('.testabsen') || msg.body.startsWith('.testnotif') || msg.body.startsWith('.jadwaledit')) {
+    if (msg.body.startsWith('.setminggu ') || msg.body.startsWith('.resetbot') || msg.body.startsWith('.testabsen') || msg.body.startsWith('.testnotif') || msg.body.startsWith('.jadwaledit') || msg.body.startsWith('.tambah_tugas') || msg.body.startsWith('.hapus_tugas') || msg.body.startsWith('.hidetag')) {
         if (!isAdmin) {
             msg.reply('Mohon Maaf, fitur ini hanya bisa digunakan oleh admin!!');
             return;
@@ -226,6 +268,58 @@ async function handleMessage(client, msg) {
             saveData(data);
 
             msg.reply(`Berhasil menambahkan mata kuliah *${matkul}* ke jadwal hari *${hari}*.`);
+        }
+
+        if (msg.body.toLowerCase().startsWith('.tambah_tugas')) {
+            let teks = msg.body.substring('.tambah_tugas'.length).trim();
+            let parts = teks.split('|').map(s => s.trim());
+            
+            if (parts.length < 3) {
+                msg.reply(`Format salah!\nCara penggunaan:\n.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>\n\nContoh:\n.tambah_tugas PWEB | Membuat makalah bab 1 | 2026-06-25`);
+                return;
+            }
+            
+            let data = loadData();
+            if (!data.daftar_tugas) data.daftar_tugas = [];
+            
+            data.daftar_tugas.push({ matkul: parts[0], deskripsi: parts[1], deadline: parts[2] });
+            saveData(data);
+            
+            msg.reply(`✅ Tugas *${parts[0]}* berhasil dicatat dengan deadline ${parts[2]}.`);
+        }
+
+        if (msg.body.toLowerCase().startsWith('.hapus_tugas')) {
+            let nomor = parseInt(msg.body.split(' ')[1]);
+            let data = loadData();
+            if (!data.daftar_tugas || data.daftar_tugas.length === 0) {
+                msg.reply("Daftar tugas sedang kosong.");
+                return;
+            }
+            if (isNaN(nomor) || nomor < 1 || nomor > data.daftar_tugas.length) {
+                msg.reply(`Format salah atau nomor tugas tidak ditemukan. Gunakan: .hapus_tugas <nomor>`);
+                return;
+            }
+            
+            // Hapus tugas berdasarkan urutan deadline
+            data.daftar_tugas.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+            let tugasDihapus = data.daftar_tugas.splice(nomor - 1, 1)[0];
+            saveData(data);
+            
+            msg.reply(`✅ Tugas *${tugasDihapus.matkul}* telah berhasil dihapus dari daftar.`);
+        }
+
+        if (msg.body.toLowerCase().startsWith('.hidetag')) {
+            let pesanTeks = msg.body.substring('.hidetag'.length).trim();
+            if (!pesanTeks) pesanTeks = "Perhatian seluruh anggota grup!";
+            
+            const chat = await msg.getChat();
+            if (!chat.isGroup) {
+                msg.reply("Perintah ini hanya bisa digunakan di dalam grup!");
+                return;
+            }
+            
+            let participants = chat.participants.map(p => p.id._serialized);
+            await chat.sendMessage(`🔊 *PENGUMUMAN*\n\n${pesanTeks}`, { mentions: participants });
         }
     }
 

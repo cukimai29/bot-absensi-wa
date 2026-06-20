@@ -6,10 +6,11 @@ const DB_PATH = path.join(__dirname, '..', 'absensi_data.json');
 // Fungsi untuk memuat database absensi
 function loadData() {
     if (!fs.existsSync(DB_PATH)) {
-        return { minggu_ke: 1, jadwal: {}, daftar_jadwal: {} };
+        return { minggu_ke: 1, jadwal: {}, daftar_jadwal: {}, daftar_tugas: [] };
     }
     let data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
     if (!data.daftar_jadwal) data.daftar_jadwal = {};
+    if (!data.daftar_tugas) data.daftar_tugas = [];
     return data;
 }
 
