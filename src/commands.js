@@ -24,7 +24,19 @@ async function handleMessage(client, msg) {
     };
 
     if (msg.body.toLowerCase() === 'bot') {
-        msg.reply("Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\nsilahkan ketik .menu untuk melihat menu apa saja pada smartbot ini");
+        try {
+            const { Buttons } = require('whatsapp-web.js');
+            const button = new Buttons(
+                "Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\nSilakan tekan tombol *MENU* di bawah ini:", 
+                [{body: '.menu'}], 
+                'SMARTBOT ABSENSI', 
+                'Tekan tombol di bawah'
+            );
+            msg.reply(button);
+        } catch (err) {
+            // Fallback jika HP penerima tidak mendukung tombol
+            msg.reply("Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\nSilakan tekan tombol/ketik *.menu* untuk melihat fitur smartbot ini.");
+        }
     }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {
@@ -57,7 +69,7 @@ async function handleMessage(client, msg) {
             msg.reply("Mohon maaf, fitur AI belum diaktifkan karena API Key belum dimasukkan.");
             return;
         }
-        
+
         msg.reply("⏳ AI sedang memikirkan jawaban, mohon tunggu sebentar...");
         try {
             const response = await ai.models.generateContent({
@@ -74,7 +86,7 @@ async function handleMessage(client, msg) {
     if (msg.body.toLowerCase() === '!ping' || msg.body.toLowerCase() === '.ping') {
         let ping = Date.now() - (msg.timestamp * 1000);
         // Fallback jika jam server VPS tidak sinkron persis dengan jam server WhatsApp
-        if (ping < 0) ping = Math.floor(Math.random() * 50) + 10; 
+        if (ping < 0) ping = Math.floor(Math.random() * 50) + 10;
         msg.reply(`Pong! 🏓\nKecepatan respon jaringan: *${ping} ms*`);
     }
 
@@ -84,11 +96,11 @@ async function handleMessage(client, msg) {
         const jam = Math.floor((uptime % 86400) / 3600);
         const menit = Math.floor((uptime % 3600) / 60);
         const detik = Math.floor(uptime % 60);
-        
+
         let teksRuntime = `Bot telah aktif tanpa henti selama:\n*`;
         if (hari > 0) teksRuntime += `${hari} Hari `;
         teksRuntime += `${jam} Jam ${menit} Menit ${detik} Detik*`;
-        
+
         msg.reply(teksRuntime);
     }
 
@@ -118,18 +130,18 @@ async function handleMessage(client, msg) {
         let args = msg.body.split(' ');
         let hariIni = new Date().toLocaleDateString('id-ID', { weekday: 'long' }).toLowerCase();
         let targetHari = args.length > 1 ? args[1].toLowerCase() : hariIni;
-        
+
         let data = loadData();
         let jadwalHari = data.daftar_jadwal && data.daftar_jadwal[targetHari] ? data.daftar_jadwal[targetHari] : [];
-        
+
         if (jadwalHari.length === 0) {
             msg.reply(`Tidak ada jadwal perkuliahan untuk hari *${targetHari.charAt(0).toUpperCase() + targetHari.slice(1)}*.`);
             return;
         }
-        
+
         let pesan = `*Jadwal Kuliah Hari ${targetHari.charAt(0).toUpperCase() + targetHari.slice(1)}*\n\n`;
         jadwalHari.forEach((j, i) => {
-            pesan += `${i+1}. *${j.matkul}*\n   ⏰ ${j.jam}\n   📍 ${j.ruang}\n\n`;
+            pesan += `${i + 1}. *${j.matkul}*\n   ⏰ ${j.jam}\n   📍 ${j.ruang}\n\n`;
         });
         msg.reply(pesan);
     }
@@ -198,7 +210,7 @@ async function handleMessage(client, msg) {
         if (msg.body.toLowerCase().startsWith('.jadwaledit')) {
             let teks = msg.body.substring('.jadwaledit'.length).trim();
             let parts = teks.split('|').map(s => s.trim());
-            
+
             if (parts.length === 2 && parts[1].toLowerCase() === 'reset') {
                 let hari = parts[0].toLowerCase();
                 let data = loadData();
@@ -212,19 +224,19 @@ async function handleMessage(client, msg) {
                 msg.reply(`Format salah!\n\n*Cara Tambah Jadwal:*\n.jadwaledit senin | Algoritma | 08:00 | Lab 1\n\n*Cara Hapus Jadwal Sehari:*\n.jadwaledit senin | reset`);
                 return;
             }
-            
+
             let hari = parts[0].toLowerCase();
             let matkul = parts[1];
             let jam = parts[2];
             let ruang = parts[3];
-            
+
             let data = loadData();
             if (!data.daftar_jadwal) data.daftar_jadwal = {};
             if (!data.daftar_jadwal[hari]) data.daftar_jadwal[hari] = [];
-            
+
             data.daftar_jadwal[hari].push({ matkul, jam, ruang });
             saveData(data);
-            
+
             msg.reply(`Berhasil menambahkan mata kuliah *${matkul}* ke jadwal hari *${hari}*.`);
         }
     }
