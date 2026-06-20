@@ -115,10 +115,9 @@ client.on('ready', () => {
                 console.log(`[${now.toLocaleTimeString('id-ID')}] Di luar jam kerja (05:00 - 21:00). Pengecekan ditunda.`);
             }
 
-            // Hitung jeda acak untuk pengecekan berikutnya (antara 45 menit sampai 90 menit)
-            // 45 menit = 2700000 ms, 90 menit = 5400000 ms
-            const minMs = 45 * 60 * 1000;
-            const maxMs = 90 * 60 * 1000;
+            // Hitung jeda acak untuk pengecekan berikutnya (antara 20 menit sampai 70 menit)
+            const minMs = 20 * 60 * 1000;
+            const maxMs = 70 * 60 * 1000;
             const randomDelay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
 
             const nextRun = new Date(now.getTime() + randomDelay);
