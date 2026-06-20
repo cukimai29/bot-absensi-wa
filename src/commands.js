@@ -45,6 +45,13 @@ async function handleMessage(client, msg) {
             `8. *!ping* : Mengecek kecepatan respon jaringan bot.\n` +
             `9. *.runtime* : Melihat lama bot menyala tanpa henti.\n` +
             `10. *.admin* : Menampilkan info admin.\n\n` +
+            `*👑 KHUSUS ADMIN*\n` +
+            `11. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
+            `12. *.hapus_tugas <Nomor>*\n` +
+            `13. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
+            `14. *.hidetag <Pesan>*\n` +
+            `15. *.setminggu <Angka>*\n` +
+            `16. *.resetbot <Semester>*\n\n` +
             `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
     }
@@ -177,7 +184,7 @@ async function handleMessage(client, msg) {
     }
 
     const senderId = msg.author || msg.from || '';
-    const isAdmin = senderId.includes('85704682918') || senderId.includes('194720949112994');
+    const isAdmin = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944');
 
     if (msg.body.startsWith('.setminggu ') || msg.body.startsWith('.resetbot') || msg.body.startsWith('.testabsen') || msg.body.startsWith('.testnotif') || msg.body.startsWith('.jadwaledit') || msg.body.startsWith('.tambah_tugas') || msg.body.startsWith('.hapus_tugas') || msg.body.startsWith('.hidetag')) {
         if (!isAdmin) {
