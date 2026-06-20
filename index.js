@@ -349,8 +349,18 @@ client.initialize();
 
 // Fungsi untuk melakukan otomatisasi web
 async function checkPortal() {
-    // Jalankan browser secara tersembunyi (headless: true)
-    const browser = await puppeteer.launch({ headless: true });
+    // Jalankan browser secara tersembunyi (headless: true) dengan konfigurasi yang ramah VPS Linux
+    const browser = await puppeteer.launch({ 
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage', // Mencegah crash memori di VPS saat membuka Ethol
+            '--disable-accelerated-2d-canvas',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
+    });
     const page = await browser.newPage();
 
     try {
