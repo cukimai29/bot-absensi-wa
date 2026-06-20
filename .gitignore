@@ -1,6 +1,7 @@
 node_modules/
 .wwebjs_auth/
 .wwebjs_cache/
+.env
 absensi_data.json
 package-lock.json
 .env
