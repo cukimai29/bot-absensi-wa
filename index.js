@@ -111,8 +111,19 @@ client.on('ready', () => {
 
         if (count > 0) {
             let pesanAkhir = `🚨 *REMINDER TUGAS KELAS* 🚨\n\nPerhatian semuanya, ada ${count} tugas yang mendesak untuk segera diselesaikan:\n\n${pesanReminder}\nMohon segera dikerjakan ya! Ketik *.tugas* untuk melihat seluruh daftar tugas.`;
-            client.sendMessage(process.env.TARGET_GROUP_ID, pesanAkhir).catch(console.error);
-            console.log(`[Pengingat Tugas] Berhasil mengirim peringatan untuk ${count} tugas.`);
+            
+            client.getChatById(process.env.TARGET_GROUP_ID).then(chat => {
+                if (chat.isGroup) {
+                    let participants = chat.participants.map(p => p.id._serialized);
+                    chat.sendMessage(`🔊 *PENGUMUMAN*\n\n${pesanAkhir}`, { mentions: participants }).catch(console.error);
+                } else {
+                    client.sendMessage(process.env.TARGET_GROUP_ID, pesanAkhir).catch(console.error);
+                }
+            }).catch(err => {
+                console.error("Gagal get chat untuk hidetag reminder:", err);
+                client.sendMessage(process.env.TARGET_GROUP_ID, pesanAkhir).catch(console.error);
+            });
+            console.log(`[Pengingat Tugas] Berhasil mengirim peringatan hidetag untuk ${count} tugas.`);
         }
     }, {
         scheduled: true,
