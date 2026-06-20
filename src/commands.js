@@ -56,22 +56,25 @@ async function handleMessage(client, msg) {
             `5. *.suara <teks>* : Teks jadi Voice Note.\n` +
             `6. *.ringkas* : (Reply pesan) Ringkas teks panjang.\n` +
             `7. *.tl <id/en>* : (Reply pesan) Translate teks.\n` +
-            `8. *.susunkata* : Main tebak kata acak di grup.\n\n` +
+            `8. *.susunkata* : Main tebak kata acak di grup.\n` +
+            `9. *.khodam <nama>* : Cek khodam pendamping.\n` +
+            `10. *.truth* / *.dare* : Main Truth or Dare.\n` +
+            `11. *.jodoh @tag1 @tag2* : Ramal kecocokan jodoh.\n\n` +
             `*🔧 FITUR UTAMA*\n` +
-            `9. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.\n` +
-            `10. *.allabsensi* : Rekap absen minggu ini.\n` +
-            `11. *.stiker* : Mengubah foto menjadi stiker.\n` +
-            `12. *!ping* : Mengecek kecepatan respon bot.\n` +
-            `13. *.runtime* : Melihat uptime bot.\n` +
-            `14. *.owner* : Menampilkan info owner bot.\n\n` +
+            `12. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.\n` +
+            `13. *.allabsensi* : Rekap absen minggu ini.\n` +
+            `14. *.stiker* : Mengubah foto menjadi stiker.\n` +
+            `15. *!ping* : Mengecek kecepatan respon bot.\n` +
+            `16. *.runtime* : Melihat uptime bot.\n` +
+            `17. *.owner* : Menampilkan info owner bot.\n\n` +
             `*👑 KHUSUS ADMIN GRUP*\n` +
-            `15. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
-            `16. *.hapus_tugas <Nomor>*\n` +
-            `17. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
-            `18. *.hidetag <Pesan>*\n` +
-            `19. *.setminggu <Angka>*\n\n` +
+            `18. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
+            `19. *.hapus_tugas <Nomor>*\n` +
+            `20. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
+            `21. *.hidetag <Pesan>*\n` +
+            `22. *.setminggu <Angka>*\n\n` +
             `*👑 KHUSUS OWNER*\n` +
-            `20. *.resetbot <Semester>*\n\n` +
+            `23. *.resetbot <Semester>*\n\n` +
             `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
     }
@@ -451,6 +454,51 @@ async function handleMessage(client, msg) {
         
         activeGames[chatId] = { jawaban: word, acak: acak };
         msg.reply(`🎮 *MINI GAME SUSUN KATA* 🎮\n\nSusunlah huruf-huruf acak berikut menjadi sebuah kata terkait dunia kampus/IT:\n\n👉 *${acak}* 👈\n\nSiapa cepat dia dapat! Silakan langsung ketik jawabannya di sini.`);
+    }
+
+    if (msg.body.toLowerCase().startsWith('.khodam')) {
+        let nama = msg.body.substring('.khodam'.length).trim();
+        if (!nama) {
+            msg.reply('Ketik namanya! Contoh: *.khodam Budi*');
+            return;
+        }
+        const khodamList = ['Kipas Angin Cosmos', 'Naga Sakti', 'Tutup Termos', 'Maung Bandung', 'Kucing Oren', 'Seblak Ceker', 'Sapu Lidi', 'Ksatria Bergitar', 'Panci Gosong', 'Biawak Sungai', 'Knalpot Racing', 'Nyamuk Kebon', 'Jin Penglaris', 'Sendok Nasi', 'Cacing Tanah'];
+        let khodam = khodamList[Math.floor(Math.random() * khodamList.length)];
+        msg.reply(`🔮 Setelah diterawang oleh bot...\n\nKhodam pendamping *${nama}* adalah: **${khodam}**`);
+    }
+
+    if (msg.body.toLowerCase() === '.truth') {
+        const truthList = ['Sebutkan inisial orang yang pernah kamu stalking minggu ini!', 'Apa kebohongan terbesar yang pernah kamu buat ke dosen?', 'Siapa orang di kelas ini yang menurutmu paling menarik?', 'Apa rahasia memalukanmu waktu ospek?', 'Pernah naksir pacar teman gak?'];
+        let truth = truthList[Math.floor(Math.random() * truthList.length)];
+        msg.reply(`🤫 *TRUTH*\n\n${truth}\n\n(Ayo jawab jujur di grup ini!)`);
+    }
+
+    if (msg.body.toLowerCase() === '.dare') {
+        const dareList = ['Kirim VN nyanyi lagu Balonku Ada Lima ke grup ini sekarang!', 'Ganti foto profil WA pakai foto aib teman sebelahmu selama 1 jam.', 'Chat kating random bilang "Halo kak, boleh kenalan?" lalu screenshot ke sini.', 'Ketik "Aku sayang kalian semua" di grup keluarga lalu screenshot.', 'Kirim selfie paling jelek kamu ke grup ini!'];
+        let dare = dareList[Math.floor(Math.random() * dareList.length)];
+        msg.reply(`🔥 *DARE*\n\n${dare}\n\n(Lakukan sekarang atau traktir es teh satu kelas!)`);
+    }
+
+    if (msg.body.toLowerCase().startsWith('.jodoh')) {
+        if (!ai) {
+            msg.reply('Fitur AI belum aktif.');
+            return;
+        }
+        let target = msg.body.substring('.jodoh'.length).trim();
+        if (!target) {
+            msg.reply('Sebutkan dua nama yang mau diramal! Contoh: *.jodoh @udin dan @siti*');
+            return;
+        }
+        msg.reply('🔮 AI sedang menghitung kecocokan jodoh mereka...');
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Buatkan ramalan lucu dan absurd ala anak kuliahan tentang kecocokan jodoh untuk dua orang ini: ${target}. Maksimal 3 kalimat pendek yang bikin ngakak.`,
+            });
+            msg.reply(`*💘 RAMALAN JODOH AI 💘*\n\n${response.text}`);
+        } catch (err) {
+            msg.reply('Maaf, dukun AI sedang kehabisan menyan.');
+        }
     }
 
     if (msg.body.toLowerCase() === '.owner') {
