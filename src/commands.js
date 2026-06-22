@@ -170,7 +170,8 @@ async function handleMessage(client, msg) {
     }
 
     if (msg.body.toLowerCase() === 'bot') {
-        msg.reply("Hadirr, siap membantu mengurus absensi warna warnimu itu.\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_");
+        const poll = new Poll('Hadirr! Silakan pilih tombol di bawah ini untuk melihat menu:', ['.menu']);
+        msg.reply(poll);
     }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {

@@ -139,4 +139,30 @@ client.on('message', async msg => {
     await handleMessage(client, msg);
 });
 
+client.on('vote_update', async vote => {
+    if (vote.selectedOptions && vote.selectedOptions.length > 0) {
+        let selectedOption = vote.selectedOptions[0].name.toLowerCase();
+        if (selectedOption === '.menu') {
+            try {
+                // Ekstrak ID chat dari serialized ID pesan aslinya
+                let parts = vote.parentMessage.id ? vote.parentMessage.id._serialized.split('_') : vote.parentMessage._serialized.split('_');
+                let chatId = parts[1];
+                
+                // Buat pesan palsu agar fungsi handleMessage memprosesnya sebagai perintah .menu
+                let fakeMsg = {
+                    body: '.menu',
+                    from: chatId,
+                    author: vote.voter,
+                    timestamp: Math.floor(Date.now() / 1000),
+                    reply: (content) => client.sendMessage(chatId, content),
+                    getChat: () => client.getChatById(chatId)
+                };
+                await handleMessage(client, fakeMsg);
+            } catch (err) {
+                console.error("Gagal memproses poll:", err);
+            }
+        }
+    }
+});
+
 client.initialize();
