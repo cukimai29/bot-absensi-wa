@@ -2,7 +2,7 @@ const { loadData, saveData } = require('./database');
 const { checkPortal, announceAbsen } = require('./ethol-scraper');
 const { GoogleGenAI } = require('@google/genai');
 const googleTTS = require('google-tts-api');
-const { MessageMedia } = require('whatsapp-web.js');
+const { MessageMedia, Poll } = require('whatsapp-web.js');
 
 async function createMeme(base64Image, mimetype, topText, bottomText) {
     const puppeteer = require('puppeteer');
