@@ -170,8 +170,7 @@ async function handleMessage(client, msg) {
     }
 
     if (msg.body.toLowerCase() === 'bot') {
-        let button = new Buttons('Hadirr! Silakan klik tombol di bawah ini:', [{body:'.menu'}], 'Bot Absensi', 'Pilih menu pintar');
-        client.sendMessage(msg.from, button);
+        msg.reply("Hadirr, siap membantu!\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_");
     }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {
