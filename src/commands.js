@@ -2,7 +2,7 @@ const { loadData, saveData } = require('./database');
 const { checkPortal, announceAbsen } = require('./ethol-scraper');
 const { GoogleGenAI } = require('@google/genai');
 const googleTTS = require('google-tts-api');
-const { MessageMedia, Poll } = require('whatsapp-web.js');
+const { MessageMedia, Poll, Buttons } = require('whatsapp-web.js');
 
 async function createMeme(base64Image, mimetype, topText, bottomText) {
     const puppeteer = require('puppeteer');
@@ -170,8 +170,8 @@ async function handleMessage(client, msg) {
     }
 
     if (msg.body.toLowerCase() === 'bot') {
-        const poll = new Poll('Hadirr! Silakan pilih tombol di bawah ini untuk melihat menu:', ['.menu']);
-        client.sendMessage(msg.from, poll);
+        let button = new Buttons('Hadirr! Silakan klik tombol di bawah ini:', [{body:'.menu'}], 'Bot Absensi', 'Pilih menu pintar');
+        client.sendMessage(msg.from, button);
     }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {
