@@ -171,7 +171,7 @@ async function handleMessage(client, msg) {
 
     if (msg.body.toLowerCase() === 'bot') {
         const poll = new Poll('Hadirr! Silakan pilih tombol di bawah ini untuk melihat menu:', ['.menu']);
-        msg.reply(poll);
+        client.sendMessage(msg.from, poll);
     }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {
