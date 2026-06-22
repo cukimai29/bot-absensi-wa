@@ -4,6 +4,116 @@ const { GoogleGenAI } = require('@google/genai');
 const googleTTS = require('google-tts-api');
 const { MessageMedia } = require('whatsapp-web.js');
 
+async function createMeme(base64Image, mimetype, topText, bottomText) {
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+    const page = await browser.newPage();
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&display=swap');
+            body { margin: 0; display: inline-block; background: transparent; }
+            .container { position: relative; display: inline-block; }
+            img { max-width: 800px; display: block; }
+            .text {
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                font-family: 'Impact', 'Oswald', sans-serif;
+                font-size: 40px;
+                font-weight: bold;
+                color: white;
+                text-align: center;
+                text-transform: uppercase;
+                text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 2px 0 #000, 2px 0 0 #000, 0 -2px 0 #000, -2px 0 0 #000;
+                width: 90%;
+                word-wrap: break-word;
+            }
+            .top { top: 10px; }
+            .bottom { bottom: 10px; }
+        </style>
+    </head>
+    <body>
+        <div class="container" id="capture">
+            <img src="data:${mimetype};base64,${base64Image}">
+            <div class="text top">${topText}</div>
+            <div class="text bottom">${bottomText}</div>
+        </div>
+    </body>
+    </html>
+    `;
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const element = await page.$('#capture');
+    const screenshot = await element.screenshot({ encoding: 'base64' });
+    await browser.close();
+    return screenshot;
+}
+
+async function createNulis(teks) {
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+    const page = await browser.newPage();
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap');
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #fdfdfd;
+                width: 600px;
+                height: 800px;
+                position: relative;
+            }
+            .paper {
+                width: 100%;
+                height: 100%;
+                background-image: linear-gradient(#999 1px, transparent 1px);
+                background-size: 100% 30px;
+                background-position: 0 40px;
+            }
+            .margin-line {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 60px;
+                width: 2px;
+                background-color: #ffaaaa;
+            }
+            .content {
+                position: absolute;
+                top: 40px;
+                left: 75px;
+                right: 20px;
+                font-family: 'Caveat', cursive;
+                font-size: 26px;
+                line-height: 30px;
+                color: #1a237e; /* Ink blue */
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                letter-spacing: 1px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="paper" id="capture">
+            <div class="margin-line"></div>
+            <div class="content">${teks.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+        </div>
+    </body>
+    </html>
+    `;
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const element = await page.$('body');
+    const screenshot = await element.screenshot({ encoding: 'base64' });
+    await browser.close();
+    return screenshot;
+}
+
 // Inisialisasi AI (Hanya aktif jika GEMINI_API_KEY tersedia di .env)
 let ai = null;
 if (process.env.GEMINI_API_KEY) {
@@ -32,9 +142,30 @@ async function handleMessage(client, msg) {
 
     if (activeGames[chatId]) {
         let game = activeGames[chatId];
-        if (msg.body.toLowerCase() === game.jawaban) {
-            msg.reply(`🎉 BENAR SEKALI!\n\nSelamat, tebakan kata *${game.jawaban.toUpperCase()}* sangat tepat!\n(Game Selesai)`);
+        let pJawaban = msg.body.toLowerCase().trim();
+
+        if (pJawaban === 'nyerah') {
+            if (game.type === 'caklontong') {
+                msg.reply(`Wooo dasar lemah!\n\nJawaban: *${game.jawaban.toUpperCase()}*\nAlasan: ${game.alasan}`);
+                delete activeGames[chatId];
+                return;
+            } else if (game.type === 'tebaklagu') {
+                msg.reply(`Wooo nyerah!\n\nJudul lagunya adalah: *${game.jawaban.toUpperCase()}*`);
+                delete activeGames[chatId];
+                return;
+            }
+        }
+
+        if (pJawaban === game.jawaban) {
+            if (game.type === 'caklontong') {
+                msg.reply(`🎉 BENAR SEKALI!\n\nJawaban: *${game.jawaban.toUpperCase()}*\nAlasan: ${game.alasan}`);
+            } else if (game.type === 'tebaklagu') {
+                msg.reply(`🎵 YUHUUU BENAR SEKALI!\n\nJudul lagunya adalah: *${game.jawaban.toUpperCase()}* 🎤`);
+            } else {
+                msg.reply(`🎉 BENAR SEKALI!\n\nSelamat, tebakan kata *${game.jawaban.toUpperCase()}* sangat tepat!\n(Game Selesai)`);
+            }
             delete activeGames[chatId];
+            return;
         }
     }
 
@@ -51,7 +182,7 @@ async function handleMessage(client, msg) {
             `*📚 PRODUKTIVITAS & HIBURAN*\n` +
             `1. *.jadwal* : Menampilkan jadwal kuliah.\n` +
             `2. *.tugas* : Menampilkan daftar tugas.\n` +
-            `3. *.tanya <teks>* : Bertanya ke AI Pintar.\n` +
+            `3. *.tanya <teks>* : Bertanya ke AI Pintar / AI Vision.\n` +
             `4. *.cuaca <kota>* : Mengecek kondisi cuaca.\n` +
             `5. *.suara <teks>* : Teks jadi Voice Note.\n` +
             `6. *.ringkas* : (Reply pesan) Ringkas teks panjang.\n` +
@@ -59,30 +190,37 @@ async function handleMessage(client, msg) {
             `8. *.susunkata* : Main tebak kata acak di grup.\n` +
             `9. *.khodam <nama>* : Cek khodam pendamping.\n` +
             `10. *.truth* / *.dare* : Main Truth or Dare.\n` +
-            `11. *.jodoh @tag1 @tag2* : Ramal kecocokan jodoh.\n\n` +
+            `11. *.jodoh @tag1 @tag2* : Ramal kecocokan jodoh.\n` +
+            `12. *.roasting @tag* : Roasting temanmu.\n` +
+            `13. *.gombal @tag* : Kirim gombalan maut.\n` +
+            `14. *.caklontong* : Tebak-tebakan logika ala WIB.\n` +
+            `15. *.cekhoki* : Cek persentase hoki harian.\n` +
+            `16. *.meme <atas>|<bawah>* : Bikin meme dari gambar.\n` +
+            `17. *.nulis <teks>* : Nulis otomatis di buku.\n` +
+            `18. *.tebaklagu* : Main tebak judul lagu.\n\n` +
             `*🔧 FITUR UTAMA*\n` +
-            `12. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.\n` +
-            `13. *.allabsensi* : Rekap absen minggu ini.\n` +
-            `14. *.stiker* : Mengubah foto menjadi stiker.\n` +
-            `15. *!ping* : Mengecek kecepatan respon bot.\n` +
-            `16. *.runtime* : Melihat uptime bot.\n` +
-            `17. *.owner* : Menampilkan info owner bot.\n\n` +
+            `19. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.\n` +
+            `20. *.allabsensi* : Rekap absen minggu ini.\n` +
+            `21. *.stiker* : Mengubah foto menjadi stiker.\n` +
+            `22. *!ping* : Mengecek kecepatan respon bot.\n` +
+            `23. *.runtime* : Melihat uptime bot.\n` +
+            `24. *.owner* : Menampilkan info owner bot.\n\n` +
             `*👑 KHUSUS ADMIN GRUP*\n` +
-            `18. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
-            `19. *.hapus_tugas <Nomor>*\n` +
-            `20. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
-            `21. *.hidetag <Pesan>*\n` +
-            `22. *.setminggu <Angka>*\n\n` +
+            `25. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
+            `26. *.hapus_tugas <Nomor>*\n` +
+            `27. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
+            `28. *.hidetag <Pesan>*\n` +
+            `29. *.setminggu <Angka>*\n\n` +
             `*👑 KHUSUS OWNER*\n` +
-            `23. *.resetbot <Semester>*\n\n` +
+            `30. *.resetbot <Semester>*\n\n` +
             `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
     }
 
     if (msg.body.toLowerCase().startsWith('.tanya')) {
         let pertanyaan = msg.body.substring('.tanya'.length).trim();
-        if (!pertanyaan) {
-            msg.reply("Tanyakan apa saja ke AI! Contoh: *.tanya tolong jelaskan apa itu javascript secara singkat*");
+        if (!pertanyaan && !msg.hasMedia && !msg.hasQuotedMsg) {
+            msg.reply("Tanyakan apa saja ke AI! Contoh: *.tanya tolong jelaskan apa itu javascript secara singkat*\nAtau kirim/reply gambar dengan caption *.tanya <pertanyaan>*.");
             return;
         }
         if (!ai) {
@@ -90,11 +228,32 @@ async function handleMessage(client, msg) {
             return;
         }
 
+        let media = null;
+        if (msg.hasMedia) {
+            media = await msg.downloadMedia();
+        } else if (msg.hasQuotedMsg) {
+            const quotedMsg = await msg.getQuotedMessage();
+            if (quotedMsg.hasMedia) media = await quotedMsg.downloadMedia();
+        }
+
         msg.reply("⏳ AI sedang memikirkan jawaban, mohon tunggu sebentar...");
         try {
+            let contents = [];
+            if (pertanyaan) contents.push(pertanyaan);
+            else if (media) contents.push("Tolong jelaskan apa yang ada di gambar ini secara singkat.");
+
+            if (media && media.mimetype.includes('image')) {
+                contents.push({
+                    inlineData: {
+                        data: media.data,
+                        mimeType: media.mimetype
+                    }
+                });
+            }
+
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: pertanyaan,
+                contents: contents,
             });
             msg.reply(`*🤖 Jawaban AI:*\n\n${response.text}`);
         } catch (err) {
@@ -212,7 +371,7 @@ async function handleMessage(client, msg) {
     }
 
     const senderId = msg.author || msg.from || '';
-    const isOwner = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944');
+    const isOwner = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944') || senderId.includes('70523564343409');
 
     const adminCommands = ['.setminggu', '.testabsen', '.testnotif', '.jadwaledit', '.tambah_tugas', '.hapus_tugas', '.hidetag'];
     const isCmdAdmin = adminCommands.some(cmd => msg.body.toLowerCase().startsWith(cmd));
@@ -396,8 +555,8 @@ async function handleMessage(client, msg) {
             return;
         }
         try {
-            const url = googleTTS.getAudioUrl(teks, { lang: lang, slow: false, host: 'https://translate.google.com' });
-            const media = await MessageMedia.fromUrl(url, { unsafeMime: true });
+            const base64 = await googleTTS.getAudioBase64(teks, { lang: lang, slow: false, host: 'https://translate.google.com' });
+            const media = new MessageMedia('audio/mp3', base64, 'audio.mp3');
             await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
         } catch (err) {
             console.error(err);
@@ -498,6 +657,158 @@ async function handleMessage(client, msg) {
             msg.reply(`*💘 RAMALAN JODOH AI 💘*\n\n${response.text}`);
         } catch (err) {
             msg.reply('Maaf, dukun AI sedang kehabisan menyan.');
+        }
+    }
+
+    if (msg.body.toLowerCase().startsWith('.roasting')) {
+        if (!ai) return msg.reply('Fitur AI belum aktif.');
+        let target = msg.body.substring('.roasting'.length).trim();
+        if (msg.hasQuotedMsg) {
+            const quotedMsg = await msg.getQuotedMessage();
+            target += ` (Dia bilang: "${quotedMsg.body}")`;
+        }
+        if (!target.trim()) return msg.reply('Sebutkan nama atau tag orang yang mau di-roasting! Atau reply pesannya.');
+        
+        msg.reply('🔥 Mempersiapkan bahan roasting...');
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Buatkan roasting-an pedas, lucu, dan menohok ala stand-up comedy bahasa indonesia untuk target berikut: ${target}. Jangan terlalu kasar sampai bawa SARA, tapi cukup bikin malu. Maksimal 3 kalimat.`,
+            });
+            msg.reply(`*🔥 ROASTING TIME 🔥*\n\n${response.text}`);
+        } catch (err) {
+            msg.reply('Maaf, AI lagi mager ngeroasting.');
+        }
+    }
+
+    if (msg.body.toLowerCase().startsWith('.gombal')) {
+        if (!ai) return msg.reply('Fitur AI belum aktif.');
+        let target = msg.body.substring('.gombal'.length).trim() || 'kamu';
+        msg.reply('😘 Sedang merangkai kata-kata manis...');
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Buatkan satu kalimat gombalan maut yang sangat lucu, receh, dan agak cringe bahasa indonesia untuk: ${target}.`,
+            });
+            msg.reply(`*💖 GOMBALAN AI 💖*\n\n${response.text}`);
+        } catch (err) {
+            msg.reply('Maaf, AI lagi nggak mood gombal.');
+        }
+    }
+
+    if (msg.body.toLowerCase() === '.cekhoki') {
+        const persen = Math.floor(Math.random() * 101);
+        const saranList = [
+            'Mending tidur aja seharian.',
+            'Coba minta traktir temen sebelahmu.',
+            'Jangan lupa napas hari ini.',
+            'Hati-hati kalau jalan, awas kesandung semut.',
+            'Aman, hari ini kamu bisa ngerjain tugas tanpa ketahuan copas.',
+            'Siap-siap dapet kejutan (entah baik atau buruk).',
+            'Coba dengerin lagu galau, siapa tau makin galau.'
+        ];
+        const saran = saranList[Math.floor(Math.random() * saranList.length)];
+        let emot = persen > 70 ? '🌟' : (persen > 30 ? '👍' : '💀');
+        msg.reply(`*📊 CEK HOKI HARI INI 📊*\n\nTingkat Hoki kamu: *${persen}%* ${emot}\n\n💡 *Saran AI:* ${saran}`);
+    }
+
+    if (msg.body.toLowerCase() === '.caklontong') {
+        const chatId = msg.from;
+        if (activeGames[chatId] && activeGames[chatId].type === 'caklontong') {
+            msg.reply(`Masih ada soal Cak Lontong yang belum dijawab!\n\nSoal: *${activeGames[chatId].soal}*\n\n(Ketik *nyerah* kalau udah pusing)`);
+            return;
+        }
+
+        const soalLontong = [
+            { soal: "Matahari terbenam di sebelah...", jawaban: "bawah", alasan: "Masa di sebelah warung, kan matahari turun ke bawah." },
+            { soal: "Yang sering mendapat nilai 100 saat ujian...", jawaban: "kertas", alasan: "Kan kertasnya yang ditulisin nilai 100, bukan muridnya." },
+            { soal: "Sebelum terbang, burung biasanya...", jawaban: "merem", alasan: "Coba aja kamu kepakkan tangan, pasti sambil merem." },
+            { soal: "Kendaraan yang punya roda 3...", jawaban: "sepeda", alasan: "Sepeda anak kecil kan rodanya 3." },
+            { soal: "Bisa ditarik tapi tidak bisa dilihat...", jawaban: "napas", alasan: "Napas ditarik setiap saat tapi wujudnya ga ada." }
+        ];
+
+        let randomSoal = soalLontong[Math.floor(Math.random() * soalLontong.length)];
+        activeGames[chatId] = { type: 'caklontong', jawaban: randomSoal.jawaban, soal: randomSoal.soal, alasan: randomSoal.alasan };
+        
+        msg.reply(`🧠 *KUIS CAK LONTONG* 🧠\n\nSoal: *${randomSoal.soal}*\n\nSilakan jawab langsung di grup ini. Hati-hati, jawabannya di luar nalar!`);
+    }
+
+    if (msg.body.toLowerCase().startsWith('.meme')) {
+        let teks = msg.body.substring('.meme'.length).trim();
+        let parts = teks.split('|').map(s => s.trim());
+        let topText = parts[0] || '';
+        let bottomText = parts[1] || '';
+
+        let media = null;
+        if (msg.hasMedia) {
+            media = await msg.downloadMedia();
+        } else if (msg.hasQuotedMsg) {
+            const quotedMsg = await msg.getQuotedMessage();
+            if (quotedMsg.hasMedia) {
+                media = await quotedMsg.downloadMedia();
+            }
+        }
+
+        if (!media || !media.mimetype.includes('image')) {
+            msg.reply('Kirim/reply gambar dengan format: *.meme teks atas | teks bawah*');
+            return;
+        }
+
+        msg.reply('⏳ Sedang meracik meme...');
+        try {
+            const memeBase64 = await createMeme(media.data, media.mimetype, topText, bottomText);
+            const memeMedia = new MessageMedia('image/png', memeBase64, 'meme.png');
+            await client.sendMessage(msg.from, memeMedia);
+        } catch (err) {
+            console.error('Gagal membuat meme:', err);
+            msg.reply('Terjadi kesalahan saat membuat meme.');
+        }
+    }
+
+    if (msg.body.toLowerCase().startsWith('.nulis')) {
+        let teks = msg.body.substring('.nulis'.length).trim();
+        if (!teks) return msg.reply('Teksnya mana? Contoh: *.nulis aku rajin banget nugas*');
+        
+        msg.reply('✍️ Sedang menulis di buku...');
+        try {
+            const nulisBase64 = await createNulis(teks);
+            const nulisMedia = new MessageMedia('image/png', nulisBase64, 'nulis.png');
+            await client.sendMessage(msg.from, nulisMedia);
+        } catch (err) {
+            console.error('Gagal nulis:', err);
+            msg.reply('Maaf, tintanya habis (terjadi kesalahan sistem).');
+        }
+    }
+
+    if (msg.body.toLowerCase() === '.tebaklagu') {
+        const chatId = msg.from;
+        if (activeGames[chatId] && activeGames[chatId].type === 'tebaklagu') {
+            msg.reply(`Masih ada lagu yang belum ditebak!\n\n(Ketik *nyerah* kalau nyerah)`);
+            return;
+        }
+
+        const laguList = [
+            { lirik: "Dan bila esok, datang kembali. Seperti sedia kala dimana kau bisa bercanda", jawaban: "dan" },
+            { lirik: "Separuh nafasku terbang, bersama dirimu", jawaban: "separuh nafas" },
+            { lirik: "Cinta ini membunuhku", jawaban: "cinta ini membunuhku" },
+            { lirik: "Mungkin suatu saat nanti, kau temukan bahagia meski tak bersamaku", jawaban: "monokrom" },
+            { lirik: "Ku menangis membayangkan betapa kejamnya dirimu atas diriku", jawaban: "hati yang kau sakiti" },
+            { lirik: "Cobalah mengerti keadaan ini", jawaban: "cobalah mengerti" },
+            { lirik: "Kini sendiri di sini mencarimu tak tahu di mana", jawaban: "bintang di surga" }
+        ];
+
+        let randomLagu = laguList[Math.floor(Math.random() * laguList.length)];
+        activeGames[chatId] = { type: 'tebaklagu', jawaban: randomLagu.jawaban, lirik: randomLagu.lirik };
+        
+        msg.reply(`🎵 *TEBAK LAGU* 🎵\n\nDengarkan voice note berikut dan tebak *judul lagunya*!`);
+        try {
+            const base64 = await googleTTS.getAudioBase64(randomLagu.lirik, { lang: 'id', slow: false, host: 'https://translate.google.com' });
+            const media = new MessageMedia('audio/mp3', base64, 'audio.mp3');
+            await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
+        } catch (err) {
+            console.error(err);
+            msg.reply('Yah, speakernya rusak (gagal memutar lirik).');
+            delete activeGames[chatId];
         }
     }
 
