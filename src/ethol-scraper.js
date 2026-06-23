@@ -1,6 +1,8 @@
 const puppeteer = require('puppeteer');
 const { catatAbsen } = require('./database');
 
+let useSecondAccount = false;
+
 async function announceAbsen(client, groupId, matkul, tanggal) {
     try {
         const chat = await client.getChatById(groupId);
@@ -39,8 +41,19 @@ async function checkPortal(client) {
     try {
         await page.goto('https://login.pens.ac.id/cas/login?service=http%3A%2F%2Fethol.pens.ac.id%2Fcas%2F', { waitUntil: 'networkidle2' });
 
-        await page.type('#username', process.env.ETHOL_USERNAME);
-        await page.type('#password', process.env.ETHOL_PASSWORD);
+        let username = process.env.ETHOL_USERNAME;
+        let password = process.env.ETHOL_PASSWORD;
+
+        if (useSecondAccount && process.env.ETHOL_USERNAME_2 && process.env.ETHOL_PASSWORD_2) {
+            username = process.env.ETHOL_USERNAME_2;
+            password = process.env.ETHOL_PASSWORD_2;
+        }
+
+        console.log(`Mengecek menggunakan akun: ${username}`);
+        useSecondAccount = !useSecondAccount; // Toggle untuk giliran berikutnya
+
+        await page.type('#username', username);
+        await page.type('#password', password);
 
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),

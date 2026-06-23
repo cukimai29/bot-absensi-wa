@@ -50,8 +50,8 @@ client.on('ready', () => {
                 console.log(`[${now.toLocaleTimeString('id-ID')}] Di luar jam kerja (05:00 - 21:00). Pengecekan ditunda.`);
             }
 
-            const minMs = 20 * 60 * 1000;
-            const maxMs = 70 * 60 * 1000;
+            const minMs = 15 * 60 * 1000;
+            const maxMs = 30 * 60 * 1000;
             const randomDelay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
 
             const nextRun = new Date(now.getTime() + randomDelay);
