@@ -173,49 +173,7 @@ async function handleMessage(client, msg) {
         msg.reply("Hadirr, siap membantu!\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_");
     }
 
-    if (msg.body.toLowerCase() === '.cekportal') {
-        const senderId = msg.author || msg.from;
-        // Menggunakan nomor owner biasanya (RzkyAds) ditambah opsi nomor kedua dari .env
-        const ownerNumbers = ['194720949112994', process.env.OWNER_NUMBER];
 
-        if (!ownerNumbers.includes(senderId)) {
-            msg.reply('❌ Akses Ditolak: Perintah ini hanya bisa digunakan oleh Owner Bot.');
-            return;
-        }
-
-        const fs = require('fs');
-        const path = require('path');
-        const portalPath = path.join(__dirname, '..', 'debug_portal.png');
-        const targetGroup = '120363424800769453@g.us';
-
-        if (fs.existsSync(portalPath)) {
-            const media = MessageMedia.fromFilePath(portalPath);
-            const akun = getLastUsedAccount() || 'Belum diketahui';
-            client.sendMessage(targetGroup, media, { caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*` });
-            if (msg.from !== targetGroup) {
-                msg.reply('✅ Screenshot portal telah dikirim ke grup testing.');
-            }
-        } else {
-            msg.reply('Belum ada screenshot portal. Tunggu bot mengecek portal terlebih dahulu.');
-        }
-    }
-
-    if (msg.body.toLowerCase() === '.testnotif') {
-        const senderId = msg.author || msg.from;
-        const ownerNumbers = ['194720949112994', process.env.OWNER_NUMBER];
-
-        if (!ownerNumbers.includes(senderId)) {
-            msg.reply('❌ Akses Ditolak: Perintah ini hanya bisa digunakan oleh Owner Bot.');
-            return;
-        }
-
-        const tanggalHariIni = new Date().toLocaleDateString('id-ID');
-        const targetGroup = '120363424800769453@g.us';
-        announceAbsen(client, targetGroup, 'MATKUL TESTING (INI CUMA TEST YAA)', tanggalHariIni);
-        if (msg.from !== targetGroup) {
-            msg.reply('✅ Notifikasi test absen telah dikirim ke grup testing.');
-        }
-    }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {
         msg.reply('Waalaikumsalam');
@@ -417,9 +375,9 @@ async function handleMessage(client, msg) {
     const senderId = msg.author || msg.from || '';
     const isOwner = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944') || senderId.includes('70523564343409');
 
-    const adminCommands = ['.setminggu', '.testabsen', '.testnotif', '.jadwaledit', '.tambah_tugas', '.hapus_tugas', '.hidetag'];
+    const adminCommands = ['.setminggu', '.testabsen', '.jadwaledit', '.tambah_tugas', '.hapus_tugas', '.hidetag'];
     const isCmdAdmin = adminCommands.some(cmd => msg.body.toLowerCase().startsWith(cmd));
-    const isCmdOwner = msg.body.toLowerCase().startsWith('.resetbot');
+    const isCmdOwner = msg.body.toLowerCase().startsWith('.resetbot') || msg.body.toLowerCase() === '.cekportal' || msg.body.toLowerCase() === '.testnotif';
 
     if (isCmdAdmin || isCmdOwner) {
         let isGroupAdmin = false;
@@ -443,6 +401,33 @@ async function handleMessage(client, msg) {
         if (isCmdAdmin && !hasAdminAccess) {
             msg.reply('Mohon Maaf, fitur ini khusus untuk *Admin Grup* atau *Owner* bot!');
             return;
+        }
+
+        if (msg.body.toLowerCase() === '.cekportal') {
+            const fs = require('fs');
+            const path = require('path');
+            const portalPath = path.join(__dirname, '..', 'debug_portal.png');
+            const targetGroup = '120363424800769453@g.us';
+
+            if (fs.existsSync(portalPath)) {
+                const media = MessageMedia.fromFilePath(portalPath);
+                const akun = getLastUsedAccount() || 'Belum diketahui';
+                client.sendMessage(targetGroup, media, { caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*` });
+                if (msg.from !== targetGroup) {
+                    msg.reply('✅ Screenshot portal telah dikirim ke grup testing.');
+                }
+            } else {
+                msg.reply('Belum ada screenshot portal. Tunggu bot mengecek portal terlebih dahulu.');
+            }
+        }
+
+        if (msg.body.toLowerCase() === '.testnotif') {
+            const tanggalHariIni = new Date().toLocaleDateString('id-ID');
+            const targetGroup = '120363424800769453@g.us';
+            announceAbsen(client, targetGroup, 'MATKUL TESTING (INI CUMA TEST YAA)', tanggalHariIni);
+            if (msg.from !== targetGroup) {
+                msg.reply('✅ Notifikasi test absen telah dikirim ke grup testing.');
+            }
         }
 
         if (msg.body.toLowerCase().startsWith('.setminggu')) {
