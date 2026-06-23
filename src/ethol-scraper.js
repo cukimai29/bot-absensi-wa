@@ -3,6 +3,14 @@ const { catatAbsen } = require('./database');
 
 let useSecondAccount = false;
 
+function getLastUsedAccount() {
+    if (useSecondAccount) {
+        return process.env.ETHOL_USERNAME;
+    } else {
+        return process.env.ETHOL_USERNAME_2 || process.env.ETHOL_USERNAME;
+    }
+}
+
 async function announceAbsen(client, groupId, matkul, tanggal) {
     try {
         const chat = await client.getChatById(groupId);
@@ -118,4 +126,4 @@ async function checkPortal(client) {
     }
 }
 
-module.exports = { checkPortal, announceAbsen };
+module.exports = { checkPortal, announceAbsen, getLastUsedAccount };

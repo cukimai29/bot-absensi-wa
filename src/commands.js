@@ -1,5 +1,5 @@
 const { loadData, saveData } = require('./database');
-const { checkPortal, announceAbsen } = require('./ethol-scraper');
+const { checkPortal, announceAbsen, getLastUsedAccount } = require('./ethol-scraper');
 const { GoogleGenAI } = require('@google/genai');
 const googleTTS = require('google-tts-api');
 const { MessageMedia, Poll, Buttons } = require('whatsapp-web.js');
@@ -171,6 +171,50 @@ async function handleMessage(client, msg) {
 
     if (msg.body.toLowerCase() === 'bot') {
         msg.reply("Hadirr, siap membantu!\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_");
+    }
+
+    if (msg.body.toLowerCase() === '.cekportal') {
+        const senderId = msg.author || msg.from;
+        // Menggunakan nomor owner biasanya (RzkyAds) ditambah opsi nomor kedua dari .env
+        const ownerNumbers = ['6285704682918@c.us', process.env.OWNER_NUMBER];
+        
+        if (!ownerNumbers.includes(senderId)) {
+            msg.reply('❌ Akses Ditolak: Perintah ini hanya bisa digunakan oleh Owner Bot.');
+            return;
+        }
+
+        const fs = require('fs');
+        const path = require('path');
+        const portalPath = path.join(__dirname, '..', 'debug_portal.png');
+        const targetGroup = '120363424800769453@g.us';
+        
+        if (fs.existsSync(portalPath)) {
+            const media = MessageMedia.fromFilePath(portalPath);
+            const akun = getLastUsedAccount() || 'Belum diketahui';
+            client.sendMessage(targetGroup, media, { caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*` });
+            if (msg.from !== targetGroup) {
+                msg.reply('✅ Screenshot portal telah dikirim ke grup testing.');
+            }
+        } else {
+            msg.reply('Belum ada screenshot portal. Tunggu bot mengecek portal terlebih dahulu.');
+        }
+    }
+
+    if (msg.body.toLowerCase() === '.testnotif') {
+        const senderId = msg.author || msg.from;
+        const ownerNumbers = ['6285704682918@c.us', process.env.OWNER_NUMBER];
+        
+        if (!ownerNumbers.includes(senderId)) {
+            msg.reply('❌ Akses Ditolak: Perintah ini hanya bisa digunakan oleh Owner Bot.');
+            return;
+        }
+
+        const tanggalHariIni = new Date().toLocaleDateString('id-ID');
+        const targetGroup = '120363424800769453@g.us';
+        announceAbsen(client, targetGroup, 'MATKUL TESTING (INI CUMA TEST YAA)', tanggalHariIni);
+        if (msg.from !== targetGroup) {
+            msg.reply('✅ Notifikasi test absen telah dikirim ke grup testing.');
+        }
     }
 
     if (msg.body.toLowerCase() === 'assalamualaikum' || msg.body.toLowerCase() === 'assalamu\'alaikum') {
