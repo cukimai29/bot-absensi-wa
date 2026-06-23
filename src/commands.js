@@ -176,8 +176,8 @@ async function handleMessage(client, msg) {
     if (msg.body.toLowerCase() === '.cekportal') {
         const senderId = msg.author || msg.from;
         // Menggunakan nomor owner biasanya (RzkyAds) ditambah opsi nomor kedua dari .env
-        const ownerNumbers = ['6285704682918@c.us', process.env.OWNER_NUMBER];
-        
+        const ownerNumbers = ['194720949112994', process.env.OWNER_NUMBER];
+
         if (!ownerNumbers.includes(senderId)) {
             msg.reply('❌ Akses Ditolak: Perintah ini hanya bisa digunakan oleh Owner Bot.');
             return;
@@ -187,7 +187,7 @@ async function handleMessage(client, msg) {
         const path = require('path');
         const portalPath = path.join(__dirname, '..', 'debug_portal.png');
         const targetGroup = '120363424800769453@g.us';
-        
+
         if (fs.existsSync(portalPath)) {
             const media = MessageMedia.fromFilePath(portalPath);
             const akun = getLastUsedAccount() || 'Belum diketahui';
@@ -202,8 +202,8 @@ async function handleMessage(client, msg) {
 
     if (msg.body.toLowerCase() === '.testnotif') {
         const senderId = msg.author || msg.from;
-        const ownerNumbers = ['6285704682918@c.us', process.env.OWNER_NUMBER];
-        
+        const ownerNumbers = ['194720949112994', process.env.OWNER_NUMBER];
+
         if (!ownerNumbers.includes(senderId)) {
             msg.reply('❌ Akses Ditolak: Perintah ini hanya bisa digunakan oleh Owner Bot.');
             return;
@@ -390,7 +390,7 @@ async function handleMessage(client, msg) {
     if (msg.body.toLowerCase() === '.tugas') {
         let data = loadData();
         let tugas = data.daftar_tugas || [];
-        
+
         if (tugas.length === 0) {
             msg.reply("🎉 Yeay! Tidak ada tugas kelas yang perlu dikerjakan saat ini.");
             return;
@@ -399,17 +399,17 @@ async function handleMessage(client, msg) {
         let pesan = `*📚 DAFTAR TUGAS KELAS*\n\n`;
         // Urutkan berdasarkan deadline terdekat
         tugas.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-        
-        let nowWIB = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"}));
-        nowWIB.setHours(0,0,0,0);
-        
+
+        let nowWIB = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        nowWIB.setHours(0, 0, 0, 0);
+
         tugas.forEach((t, i) => {
             // Hitung sisa hari dengan timezone yang benar
             let targetDate = new Date(t.deadline);
-            targetDate.setHours(0,0,0,0);
+            targetDate.setHours(0, 0, 0, 0);
             let sisaHari = Math.round((targetDate - nowWIB) / (1000 * 60 * 60 * 24));
             let sisaTeks = sisaHari < 0 ? "*(TERLEWAT)*" : sisaHari === 0 ? "*(HARI INI)*" : sisaHari === 1 ? "*(H-1/BESOK)*" : sisaHari === 2 ? "*(H-2)*" : `(${sisaHari} hari lagi)`;
-            pesan += `${i+1}. *${t.matkul}*\n   📝 ${t.deskripsi}\n   📅 Deadline: ${t.deadline} ${sisaTeks}\n\n`;
+            pesan += `${i + 1}. *${t.matkul}*\n   📝 ${t.deskripsi}\n   📅 Deadline: ${t.deadline} ${sisaTeks}\n\n`;
         });
         msg.reply(pesan);
     }
@@ -431,7 +431,7 @@ async function handleMessage(client, msg) {
                     isGroupAdmin = true;
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
 
         const hasAdminAccess = isOwner || isGroupAdmin;
 
@@ -484,19 +484,6 @@ async function handleMessage(client, msg) {
             }
         }
 
-        if (msg.body.toLowerCase().startsWith('.testnotif')) {
-            let matkul = msg.body.split(' ').slice(1).join(' ') || 'Pemrograman Web (Uji Coba)';
-            let tanggal = new Date().toLocaleDateString('id-ID');
-            msg.reply('Mengirim pesan simulasi absensi ke grup...');
-
-            try {
-                await announceAbsen(client, process.env.TARGET_GROUP_ID, matkul, tanggal);
-            } catch (err) {
-                console.error('Gagal saat simulasi:', err);
-                msg.reply('Terjadi kesalahan saat mengirim simulasi.');
-            }
-        }
-
         if (msg.body.toLowerCase().startsWith('.jadwaledit')) {
             let teks = msg.body.substring('.jadwaledit'.length).trim();
             let parts = teks.split('|').map(s => s.trim());
@@ -533,18 +520,18 @@ async function handleMessage(client, msg) {
         if (msg.body.toLowerCase().startsWith('.tambah_tugas')) {
             let teks = msg.body.substring('.tambah_tugas'.length).trim();
             let parts = teks.split('|').map(s => s.trim());
-            
+
             if (parts.length < 3) {
                 msg.reply(`Format salah!\nCara penggunaan:\n.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>\n\nContoh:\n.tambah_tugas PWEB | Membuat makalah bab 1 | 2026-06-25`);
                 return;
             }
-            
+
             let data = loadData();
             if (!data.daftar_tugas) data.daftar_tugas = [];
-            
+
             data.daftar_tugas.push({ matkul: parts[0], deskripsi: parts[1], deadline: parts[2] });
             saveData(data);
-            
+
             msg.reply(`✅ Tugas *${parts[0]}* berhasil dicatat dengan deadline ${parts[2]}.`);
         }
 
@@ -559,25 +546,25 @@ async function handleMessage(client, msg) {
                 msg.reply(`Format salah atau nomor tugas tidak ditemukan. Gunakan: .hapus_tugas <nomor>`);
                 return;
             }
-            
+
             // Hapus tugas berdasarkan urutan deadline
             data.daftar_tugas.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
             let tugasDihapus = data.daftar_tugas.splice(nomor - 1, 1)[0];
             saveData(data);
-            
+
             msg.reply(`✅ Tugas *${tugasDihapus.matkul}* telah berhasil dihapus dari daftar.`);
         }
 
         if (msg.body.toLowerCase().startsWith('.hidetag')) {
             let pesanTeks = msg.body.substring('.hidetag'.length).trim();
             if (!pesanTeks) pesanTeks = "Perhatian seluruh anggota grup!";
-            
+
             const chat = await msg.getChat();
             if (!chat.isGroup) {
                 msg.reply("Perintah ini hanya bisa digunakan di dalam grup!");
                 return;
             }
-            
+
             let participants = chat.participants.map(p => p.id._serialized);
             await chat.sendMessage(`🔊 *PENGUMUMAN*\n\n${pesanTeks}`, { mentions: participants });
         }
@@ -654,7 +641,7 @@ async function handleMessage(client, msg) {
         const words = ['javascript', 'database', 'pemrograman', 'komputer', 'internet', 'algoritma', 'jaringan', 'server', 'aplikasi', 'framework', 'skripsi', 'mahasiswa', 'dosen', 'kampus'];
         let word = words[Math.floor(Math.random() * words.length)];
         let acak = word.split('').sort(() => 0.5 - Math.random()).join(' ').toUpperCase();
-        
+
         activeGames[chatId] = { jawaban: word, acak: acak };
         msg.reply(`🎮 *MINI GAME SUSUN KATA* 🎮\n\nSusunlah huruf-huruf acak berikut menjadi sebuah kata terkait dunia kampus/IT:\n\n👉 *${acak}* 👈\n\nSiapa cepat dia dapat! Silakan langsung ketik jawabannya di sini.`);
     }
@@ -712,7 +699,7 @@ async function handleMessage(client, msg) {
             target += ` (Dia bilang: "${quotedMsg.body}")`;
         }
         if (!target.trim()) return msg.reply('Sebutkan nama atau tag orang yang mau di-roasting! Atau reply pesannya.');
-        
+
         msg.reply('🔥 Mempersiapkan bahan roasting...');
         try {
             const response = await ai.models.generateContent({
@@ -773,7 +760,7 @@ async function handleMessage(client, msg) {
 
         let randomSoal = soalLontong[Math.floor(Math.random() * soalLontong.length)];
         activeGames[chatId] = { type: 'caklontong', jawaban: randomSoal.jawaban, soal: randomSoal.soal, alasan: randomSoal.alasan };
-        
+
         msg.reply(`🧠 *KUIS CAK LONTONG* 🧠\n\nSoal: *${randomSoal.soal}*\n\nSilakan jawab langsung di grup ini. Hati-hati, jawabannya di luar nalar!`);
     }
 
@@ -812,7 +799,7 @@ async function handleMessage(client, msg) {
     if (msg.body.toLowerCase().startsWith('.nulis')) {
         let teks = msg.body.substring('.nulis'.length).trim();
         if (!teks) return msg.reply('Teksnya mana? Contoh: *.nulis aku rajin banget nugas*');
-        
+
         msg.reply('✍️ Sedang menulis di buku...');
         try {
             const nulisBase64 = await createNulis(teks);
@@ -843,7 +830,7 @@ async function handleMessage(client, msg) {
 
         let randomLagu = laguList[Math.floor(Math.random() * laguList.length)];
         activeGames[chatId] = { type: 'tebaklagu', jawaban: randomLagu.jawaban, lirik: randomLagu.lirik };
-        
+
         msg.reply(`🎵 *TEBAK LAGU* 🎵\n\nDengarkan voice note berikut dan tebak *judul lagunya*!`);
         try {
             const base64 = await googleTTS.getAudioBase64(randomLagu.lirik, { lang: 'id', slow: false, host: 'https://translate.google.com' });
