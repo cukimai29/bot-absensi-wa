@@ -16,11 +16,7 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
         const chat = await client.getChatById(groupId);
         let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
 
-        let mentions = [];
-        for (let participant of chat.participants) {
-            const contact = await client.getContactById(participant.id._serialized);
-            mentions.push(contact);
-        }
+        let mentions = chat.participants.map(p => p.id._serialized);
 
         let mentionsText = chat.participants.map(p => `@${p.id.user}`).join(' ');
         let fullText = `${text}\n\n${mentionsText}`;
