@@ -45,12 +45,12 @@ async function checkPortal(client) {
     try {
         await page.goto('https://login.pens.ac.id/cas/login?service=http%3A%2F%2Fethol.pens.ac.id%2Fcas%2F', { waitUntil: 'networkidle2' });
 
-        let username = process.env.ETHOL_USERNAME;
-        let password = process.env.ETHOL_PASSWORD;
+        let username = (process.env.ETHOL_USERNAME || '').trim();
+        let password = (process.env.ETHOL_PASSWORD || '').trim();
 
         if (useSecondAccount && process.env.ETHOL_USERNAME_2 && process.env.ETHOL_PASSWORD_2) {
-            username = process.env.ETHOL_USERNAME_2;
-            password = process.env.ETHOL_PASSWORD_2;
+            username = process.env.ETHOL_USERNAME_2.trim();
+            password = process.env.ETHOL_PASSWORD_2.trim();
         }
 
         console.log(`Mengecek menggunakan akun: ${username}`);
