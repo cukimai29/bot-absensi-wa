@@ -15,8 +15,9 @@ function patchDirectory(dir) {
             let content = fs.readFileSync(fullPath, 'utf8');
             let originalContent = content;
             
-            // Tangkap variabel sebelum ._serialized dan tambahkan fallback ke .$1
-            content = content.replace(/([a-zA-Z0-9_]+)\._serialized/g, function(match, p1) {
+            // Tangkap seluruh path variabel sebelum ._serialized (contoh: a.id._serialized -> (a.id._serialized || a.id.$1))
+            // Dengan menambahkan \. di dalam regex, kita bisa menangkap "a.id" sekaligus, mencegah error a.(id._serialized)
+            content = content.replace(/([a-zA-Z0-9_.]+)\._serialized/g, function(match, p1) {
                 return '(' + p1 + '._serialized || ' + p1 + '.$1)';
             });
             
