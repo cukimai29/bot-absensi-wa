@@ -1,9 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-const fs = require('fs');
-const path = require('path');
-
 const targetDir = path.join(__dirname, 'node_modules', 'whatsapp-web.js', 'src');
 
 function patchDirectory(dir) {
