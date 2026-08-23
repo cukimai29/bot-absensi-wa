@@ -231,11 +231,19 @@ async function handleMessage(client, msg) {
         }
 
         let media = null;
-        if (msg.hasMedia) {
-            media = await msg.downloadMedia();
-        } else if (msg.hasQuotedMsg) {
-            const quotedMsg = await msg.getQuotedMessage();
-            if (quotedMsg.hasMedia) media = await quotedMsg.downloadMedia();
+        try {
+            if (msg.hasMedia) {
+                media = await msg.downloadMedia();
+            } else if (msg.hasQuotedMsg) {
+                const quotedMsg = await msg.getQuotedMessage();
+                if (quotedMsg && quotedMsg.hasMedia) {
+                    media = await quotedMsg.downloadMedia();
+                }
+            }
+        } catch (err) {
+            console.error("Gagal mengambil media/quote:", err);
+            msg.reply("Maaf, terjadi kesalahan sistem pada WhatsApp saat mengambil gambar. Sistem WhatsApp versi terbaru membatasi fitur ini.");
+            return;
         }
 
         msg.reply("⏳ AI sedang memikirkan jawaban, mohon tunggu sebentar...");
@@ -844,13 +852,19 @@ async function handleMessage(client, msg) {
     if (msg.body.toLowerCase() === '.stiker' || msg.body.toLowerCase() === '.sticker') {
         let media = null;
 
-        if (msg.hasMedia) {
-            media = await msg.downloadMedia();
-        } else if (msg.hasQuotedMsg) {
-            const quotedMsg = await msg.getQuotedMessage();
-            if (quotedMsg.hasMedia) {
-                media = await quotedMsg.downloadMedia();
+        try {
+            if (msg.hasMedia) {
+                media = await msg.downloadMedia();
+            } else if (msg.hasQuotedMsg) {
+                const quotedMsg = await msg.getQuotedMessage();
+                if (quotedMsg && quotedMsg.hasMedia) {
+                    media = await quotedMsg.downloadMedia();
+                }
             }
+        } catch (err) {
+            console.error("Gagal mengambil media stiker:", err);
+            msg.reply("Maaf, terjadi kesalahan sistem pada WhatsApp saat mengunduh gambar Anda. Ini adalah bug dari sistem WhatsApp Web terbaru. Kami akan segera memperbaruinya!");
+            return;
         }
 
         if (media) {
