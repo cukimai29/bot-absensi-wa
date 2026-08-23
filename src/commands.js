@@ -211,10 +211,11 @@ async function handleMessage(client, msg) {
             `25. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
             `26. *.hapus_tugas <Nomor>*\n` +
             `27. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
-            `28. *.hidetag <Pesan>*\n` +
-            `29. *.setminggu <Angka>*\n\n` +
+            `28. *.hapusjadwal <Hari> | <Matkul>*\n` +
+            `29. *.hidetag <Pesan>*\n` +
+            `30. *.setminggu <Angka>*\n\n` +
             `*👑 KHUSUS OWNER*\n` +
-            `30. *.resetbot <Semester>*\n\n` +
+            `31. *.resetbot <Semester>*\n\n` +
             `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
     }
@@ -383,7 +384,7 @@ async function handleMessage(client, msg) {
     const senderId = msg.author || msg.from || '';
     const isOwner = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944') || senderId.includes('70523564343409');
 
-    const adminCommands = ['.setminggu', '.testabsen', '.jadwaledit', '.tambah_tugas', '.hapus_tugas', '.hidetag'];
+    const adminCommands = ['.setminggu', '.testabsen', '.jadwaledit', '.hapusjadwal', '.tambah_tugas', '.hapus_tugas', '.hidetag'];
     const isCmdAdmin = adminCommands.some(cmd => msg.body.toLowerCase().startsWith(cmd));
     const isCmdOwner = msg.body.toLowerCase().startsWith('.resetbot') || msg.body.toLowerCase() === '.cekportal' || msg.body.toLowerCase() === '.testnotif';
 
@@ -508,6 +509,37 @@ async function handleMessage(client, msg) {
             saveData(data);
 
             msg.reply(`Berhasil menambahkan mata kuliah *${matkul}* ke jadwal hari *${hari}*.`);
+        }
+
+        if (msg.body.toLowerCase().startsWith('.hapusjadwal')) {
+            let teks = msg.body.substring('.hapusjadwal'.length).trim();
+            let parts = teks.split('|').map(s => s.trim());
+
+            if (parts.length < 2) {
+                msg.reply(`Format salah!\nCara penggunaan:\n.hapusjadwal <Hari> | <Matkul>\n\nContoh:\n.hapusjadwal senin | Algoritma`);
+                return;
+            }
+
+            let hari = parts[0].toLowerCase();
+            let matkul = parts[1].toLowerCase();
+
+            let data = loadData();
+            if (!data.daftar_jadwal || !data.daftar_jadwal[hari]) {
+                msg.reply(`Tidak ada jadwal untuk hari *${hari}*.`);
+                return;
+            }
+
+            let jadwalHari = data.daftar_jadwal[hari];
+            let index = jadwalHari.findIndex(j => j.matkul.toLowerCase() === matkul);
+
+            if (index !== -1) {
+                let deletedMatkul = jadwalHari[index].matkul;
+                jadwalHari.splice(index, 1);
+                saveData(data);
+                msg.reply(`Berhasil menghapus mata kuliah *${deletedMatkul}* dari jadwal hari *${hari}*.`);
+            } else {
+                msg.reply(`Mata kuliah *${parts[1]}* tidak ditemukan pada jadwal hari *${hari}*.`);
+            }
         }
 
         if (msg.body.toLowerCase().startsWith('.tambah_tugas')) {
