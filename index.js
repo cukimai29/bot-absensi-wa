@@ -139,6 +139,27 @@ client.on('ready', () => {
             scheduled: true,
             timezone: "Asia/Jakarta"
         });
+
+        // Cron job untuk pengingat sholat subuh dan kas kelas setiap hari jam 05:00 WIB
+        cron.schedule('0 5 * * *', () => {
+            const pesanSubuh = `🌅 *SELAMAT PAGI SEMUANYA!* 🌅\n\nJangan lupa untuk segera bangun dan melaksanakan sholat subuh bagi yang menjalankan. Awali hari dengan doa agar dilancarkan segala urusannya!\n\n💸 *REMINDER KAS KELAS* 💸\nSekalian ngingetin buat teman-teman yang belum bayar uang kas kelas, yuk segera dilunasi ke bendahara agar keuangan kelas kita tetap sehat dan lancar!`;
+            
+            client.getChatById(process.env.TARGET_GROUP_ID).then(chat => {
+                if (chat.isGroup) {
+                    let participants = chat.participants.map(p => p.id._serialized || p.id.$1 || p.id);
+                    chat.sendMessage(pesanSubuh, { mentions: participants }).catch(console.error);
+                } else {
+                    client.sendMessage(process.env.TARGET_GROUP_ID, pesanSubuh).catch(console.error);
+                }
+            }).catch(err => {
+                console.error("Gagal get chat untuk hidetag subuh:", err);
+                client.sendMessage(process.env.TARGET_GROUP_ID, pesanSubuh).catch(console.error);
+            });
+            console.log(`[Pengingat Pagi] Berhasil mengirim hidetag sholat subuh dan kas kelas.`);
+        }, {
+            scheduled: true,
+            timezone: "Asia/Jakarta"
+        });
     }
 });
 

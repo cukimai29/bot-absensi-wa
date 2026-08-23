@@ -16,12 +16,10 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
         const chat = await client.getChatById(groupId);
         let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
 
-        let mentions = chat.participants.map(p => p.id._serialized);
+        let mentions = chat.participants.map(p => p.id._serialized || p.id.$1 || p.id);
 
-        let mentionsText = chat.participants.map(p => `@${p.id.user}`).join(' ');
-        let fullText = `${text}\n\n${mentionsText}`;
-
-        await chat.sendMessage(fullText, { mentions });
+        // Hidetag: mengirim pesan dengan objek mentions tanpa memunculkan '@nomor' di dalam teks
+        await chat.sendMessage(text, { mentions });
     } catch (err) {
         console.error('Gagal mengirim pengumuman absen:', err);
     }
