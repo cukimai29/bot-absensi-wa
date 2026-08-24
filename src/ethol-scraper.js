@@ -59,7 +59,7 @@ async function checkPortal(client) {
 
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
-            page.click('.btn-submit')
+            page.keyboard.press('Enter')
         ]);
 
         await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
@@ -67,33 +67,44 @@ async function checkPortal(client) {
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         try {
-            await page.evaluate(() => {
-                const lonceng = document.querySelector('.mdi-bell, .mdi-bell-outline, .v-badge');
-                if (lonceng) {
-                    const tombol = lonceng.closest('button');
-                    if (tombol) tombol.click();
-                }
-            });
+            // Coba gunakan native Puppeteer click (lebih handal untuk React/Vue SPA)
+            await page.waitForSelector('button[aria-label="Notifikasi"]', { timeout: 3000 });
+            await page.click('button[aria-label="Notifikasi"]');
             await new Promise(resolve => setTimeout(resolve, 3000));
         } catch (e) {
-            console.log("Gagal mengklik tombol notifikasi, mencoba membaca DOM secara langsung...");
+            console.log("Gagal mengklik tombol notifikasi via puppeteer, mencoba fallback JS...");
+            try {
+                await page.evaluate(() => {
+                    const lonceng = document.querySelector('.mdi-bell, .mdi-bell-outline, .v-badge, [class*="bell"], [aria-label*="notifikasi" i]');
+                    if (lonceng) {
+                        const tombol = lonceng.closest('button') || lonceng;
+                        if (tombol) tombol.click();
+                    }
+                });
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            } catch (err) {}
         }
+
 
         await page.screenshot({ path: 'debug_portal.png' });
         console.log("Screenshot halaman saat ini telah disimpan sebagai debug_portal.png");
 
         const daftarAbsenTerbuka = await page.evaluate(() => {
             let hasil = [];
-            const elemenTeks = Array.from(document.querySelectorAll('*'));
-            for (let el of elemenTeks) {
-                if (el.children.length === 0 && el.textContent) {
-                    let teks = el.textContent.trim();
-                    const pola = "Dosen telah membuka presensi untuk matakuliah";
-                    if (teks.includes(pola)) {
-                        let namaMatkul = teks.split(pola)[1].trim();
-                        let tanggalHariIni = new Date().toLocaleDateString('id-ID');
-                        if (!hasil.find(h => h.matkul === namaMatkul)) {
-                            hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
+            const pola = "Dosen telah membuka presensi untuk matakuliah";
+            const elements = Array.from(document.querySelectorAll('div, p, span, li, a'));
+            
+            for (let el of elements) {
+                if (el.textContent && el.textContent.includes(pola)) {
+                    const hasChildWithPola = Array.from(el.children).some(child => child.textContent && child.textContent.includes(pola));
+                    if (!hasChildWithPola) {
+                        let teks = el.textContent.replace(/\s+/g, ' ').trim();
+                        if (teks.includes(pola)) {
+                            let namaMatkul = teks.split(pola)[1].trim();
+                            let tanggalHariIni = new Date().toLocaleDateString('id-ID');
+                            if (!hasil.find(h => h.matkul === namaMatkul)) {
+                                hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
+                            }
                         }
                     }
                 }
@@ -149,7 +160,7 @@ async function intensiveCheckPortal(client, targetMatkul) {
 
         await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2' }),
-            page.click('.btn-submit')
+            page.keyboard.press('Enter')
         ]);
 
         await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
@@ -165,30 +176,38 @@ async function intensiveCheckPortal(client, targetMatkul) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             try {
-                await page.evaluate(() => {
-                    const lonceng = document.querySelector('.mdi-bell, .mdi-bell-outline, .v-badge');
-                    if (lonceng) {
-                        const tombol = lonceng.closest('button');
-                        if (tombol) tombol.click();
-                    }
-                });
+                await page.waitForSelector('button[aria-label="Notifikasi"]', { timeout: 3000 });
+                await page.click('button[aria-label="Notifikasi"]');
                 await new Promise(resolve => setTimeout(resolve, 3000));
             } catch (e) {
-                // Abaikan jika error lonceng
+                try {
+                    await page.evaluate(() => {
+                        const lonceng = document.querySelector('.mdi-bell, .mdi-bell-outline, .v-badge, [class*="bell"], [aria-label*="notifikasi" i]');
+                        if (lonceng) {
+                            const tombol = lonceng.closest('button') || lonceng;
+                            if (tombol) tombol.click();
+                        }
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                } catch (err) {}
             }
 
             const daftarAbsenTerbuka = await page.evaluate(() => {
                 let hasil = [];
-                const elemenTeks = Array.from(document.querySelectorAll('*'));
-                for (let el of elemenTeks) {
-                    if (el.children.length === 0 && el.textContent) {
-                        let teks = el.textContent.trim();
-                        const pola = "Dosen telah membuka presensi untuk matakuliah";
-                        if (teks.includes(pola)) {
-                            let namaMatkul = teks.split(pola)[1].trim();
-                            let tanggalHariIni = new Date().toLocaleDateString('id-ID');
-                            if (!hasil.find(h => h.matkul === namaMatkul)) {
-                                hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
+                const pola = "Dosen telah membuka presensi untuk matakuliah";
+                const elements = Array.from(document.querySelectorAll('div, p, span, li, a'));
+                
+                for (let el of elements) {
+                    if (el.textContent && el.textContent.includes(pola)) {
+                        const hasChildWithPola = Array.from(el.children).some(child => child.textContent && child.textContent.includes(pola));
+                        if (!hasChildWithPola) {
+                            let teks = el.textContent.replace(/\s+/g, ' ').trim();
+                            if (teks.includes(pola)) {
+                                let namaMatkul = teks.split(pola)[1].trim();
+                                let tanggalHariIni = new Date().toLocaleDateString('id-ID');
+                                if (!hasil.find(h => h.matkul === namaMatkul)) {
+                                    hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
+                                }
                             }
                         }
                     }
