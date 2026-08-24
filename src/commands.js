@@ -203,10 +203,11 @@ async function handleMessage(client, msg) {
             `*🔧 FITUR UTAMA*\n` +
             `19. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.\n` +
             `20. *.allabsensi* : Rekap absen minggu ini.\n` +
-            `21. *.stiker* : Mengubah foto menjadi stiker.\n` +
-            `22. *!ping* : Mengecek kecepatan respon bot.\n` +
-            `23. *.runtime* : Melihat uptime bot.\n` +
-            `24. *.owner* : Menampilkan info owner bot.\n\n` +
+            `21. *.cekjadwal* : Cek jadwal aktif hari ini.\n` +
+            `22. *.stiker* : Mengubah foto menjadi stiker.\n` +
+            `23. *!ping* : Mengecek kecepatan respon bot.\n` +
+            `24. *.runtime* : Melihat uptime bot.\n` +
+            `25. *.owner* : Menampilkan info owner bot.\n\n` +
             `*👑 KHUSUS ADMIN GRUP*\n` +
             `25. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
             `26. *.hapus_tugas <Nomor>*\n` +
@@ -352,6 +353,26 @@ async function handleMessage(client, msg) {
             pesan += `${i + 1}. *${j.matkul}*\n   ⏰ ${j.jam}\n   📍 ${j.ruang}\n\n`;
         });
         msg.reply(pesan);
+    }
+
+    if (msg.body.toLowerCase() === '.cekjadwal') {
+        const namaHari = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+        let todayStr = new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"});
+        let todayName = namaHari[new Date(todayStr).getDay()];
+        
+        let data = loadData();
+        let jadwalHariIni = data.daftar_jadwal && data.daftar_jadwal[todayName] ? data.daftar_jadwal[todayName] : [];
+
+        if (jadwalHariIni.length === 0) {
+            msg.reply(`Sistem aktif ✅\n\nNamun, tidak ada jadwal kelas untuk hari ini (*${todayName}*). Pengecekan absen intensif sedang beristirahat.`);
+        } else {
+            let pesan = `Sistem aktif ✅\n\nBot telah menyiapkan *${jadwalHariIni.length} alarm pengecekan intensif* untuk jadwal kelas hari ini (*${todayName}*):\n\n`;
+            jadwalHariIni.forEach((j, i) => {
+                pesan += `${i + 1}. *${j.matkul}*\n   ⏰ Alarm diset pada: ${j.jam} WIB\n\n`;
+            });
+            pesan += `_Bot akan otomatis mengecek portal tanpa henti selama 10 menit saat alarm berbunyi!_`;
+            msg.reply(pesan);
+        }
     }
 
     if (msg.body.toLowerCase().startsWith('.cuaca')) {
