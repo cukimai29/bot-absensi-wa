@@ -88,7 +88,7 @@ async function checkPortal(client) {
             for (let el of elemenTeks) {
                 if (el.children.length === 0 && el.textContent) {
                     let teks = el.textContent.trim();
-                    const pola = "Dosen telah melakukan presensi untuk matakuliah";
+                    const pola = "Dosen telah membuka presensi untuk matakuliah";
                     if (teks.includes(pola)) {
                         let namaMatkul = teks.split(pola)[1].trim();
                         let tanggalHariIni = new Date().toLocaleDateString('id-ID');
@@ -183,7 +183,7 @@ async function intensiveCheckPortal(client, targetMatkul) {
                 for (let el of elemenTeks) {
                     if (el.children.length === 0 && el.textContent) {
                         let teks = el.textContent.trim();
-                        const pola = "Dosen telah melakukan presensi untuk matakuliah";
+                        const pola = "Dosen telah membuka presensi untuk matakuliah";
                         if (teks.includes(pola)) {
                             let namaMatkul = teks.split(pola)[1].trim();
                             let tanggalHariIni = new Date().toLocaleDateString('id-ID');
