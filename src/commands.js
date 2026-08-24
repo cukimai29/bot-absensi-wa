@@ -309,11 +309,29 @@ async function handleMessage(client, msg) {
             return;
         }
 
-        let pesan = `*Rekap Absensi Minggu ke-${data.minggu_ke}*\n\n`;
+        let pesan = `REKAP ABSENSI MINGGU KE-${data.minggu_ke}\n\n`;
         jadwalMingguIni.forEach((item, index) => {
             pesan += `${index + 1}. Matkul: ${item.matkul}\n   Tanggal: ${item.tanggal}\n\n`;
         });
-        msg.reply(pesan);
+
+        const fs = require('fs');
+        const path = require('path');
+        const fileName = `Rekap_Absensi_Minggu_${data.minggu_ke}.txt`;
+        const filePath = path.join(__dirname, '..', fileName);
+        
+        fs.writeFileSync(filePath, pesan);
+        
+        try {
+            const media = MessageMedia.fromFilePath(filePath);
+            await client.sendMessage(msg.from, media, { caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${data.minggu_ke}*.` });
+        } catch (err) {
+            console.error("Gagal mengirim file:", err);
+            msg.reply("Maaf, terjadi kesalahan saat mengirim file rekap absensi.");
+        } finally {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
     }
 
     if (msg.body.toLowerCase().startsWith('.jadwal') && !msg.body.toLowerCase().startsWith('.jadwaledit')) {
