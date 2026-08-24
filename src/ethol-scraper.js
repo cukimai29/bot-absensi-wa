@@ -67,9 +67,15 @@ async function checkPortal(client) {
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         try {
-            // Coba gunakan native Puppeteer click (lebih handal untuk React/Vue SPA)
-            await page.waitForSelector('button[aria-label="Notifikasi"]', { timeout: 3000 });
-            await page.click('button[aria-label="Notifikasi"]');
+            // Gunakan native Puppeteer click untuk semua tombol lonceng (menghindari error jika salah satu tersembunyi di mobile/desktop)
+            const bellButtons = await page.$$('button[aria-label*="otifikasi" i]');
+            if (bellButtons.length > 0) {
+                for (let btn of bellButtons) {
+                    try { await btn.click(); } catch(err) {}
+                }
+            } else {
+                throw new Error("Lonceng tidak ditemukan");
+            }
             await new Promise(resolve => setTimeout(resolve, 3000));
         } catch (e) {
             console.log("Gagal mengklik tombol notifikasi via puppeteer, mencoba fallback JS...");
@@ -176,8 +182,14 @@ async function intensiveCheckPortal(client, targetMatkul) {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             try {
-                await page.waitForSelector('button[aria-label="Notifikasi"]', { timeout: 3000 });
-                await page.click('button[aria-label="Notifikasi"]');
+                const bellButtons = await page.$$('button[aria-label*="otifikasi" i]');
+                if (bellButtons.length > 0) {
+                    for (let btn of bellButtons) {
+                        try { await btn.click(); } catch(err) {}
+                    }
+                } else {
+                    throw new Error("Lonceng tidak ditemukan");
+                }
                 await new Promise(resolve => setTimeout(resolve, 3000));
             } catch (e) {
                 try {
