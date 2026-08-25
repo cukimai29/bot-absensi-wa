@@ -7,6 +7,7 @@ const {
 const { GoogleGenAI } = require("@google/genai");
 const googleTTS = require("google-tts-api");
 const { MessageMedia, Poll, Buttons } = require("whatsapp-web.js");
+const { checkKasAndSend } = require("./src/kas-tricendes/kas-checker");
 
 async function createMeme(base64Image, mimetype, topText, bottomText) {
   const puppeteer = require("puppeteer");
@@ -193,6 +194,24 @@ async function handleMessage(client, msg) {
     msg.reply(
       "Hadirr, siap membantu!\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_",
     );
+  }
+  if (msg.body.toLowerCase() === ".testkas") {
+    msg.reply(
+      "⏳ Memulai pengecekan data kas dari Google Sheets... Silakan tunggu.",
+    );
+    try {
+      const result = await checkKasAndSend(
+        client,
+        process.env.TARGET_GROUP_ID,
+        true,
+      );
+      if (result) {
+        msg.reply(result);
+      }
+    } catch (err) {
+      console.error(err);
+      msg.reply(`❌ Gagal memproses kas: ${err.message}`);
+    }
   }
 
   if (
