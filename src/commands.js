@@ -1408,7 +1408,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         const { Sticker, StickerTypes } = require('wa-sticker-formatter');
         const sticker = new Sticker(Buffer.from(media.data, 'base64'), {
             pack: 'SmartBot',
-            author: 'Owner',
+            author: 'by RzkyAds',
             type: StickerTypes.FULL,
             quality: 50
         });
