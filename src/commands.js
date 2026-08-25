@@ -223,14 +223,20 @@ async function handleMessage(client, rawMsg) {
       return {
         isGroup: _isGroup,
         sendStateTyping: async () => {
-          await client.sendPresenceUpdate('available', _chatId).catch(()=>{});
-          await client.sendPresenceUpdate('composing', _chatId).catch(()=>{});
+          if (_isGroup) {
+            await client.sendPresenceUpdate('available', _chatId).catch(()=>{});
+            await client.sendPresenceUpdate('composing', _chatId).catch(()=>{});
+          }
         },
         sendStateRecording: async () => {
-          await client.sendPresenceUpdate('available', _chatId).catch(()=>{});
-          await client.sendPresenceUpdate('recording', _chatId).catch(()=>{});
+          if (_isGroup) {
+            await client.sendPresenceUpdate('available', _chatId).catch(()=>{});
+            await client.sendPresenceUpdate('recording', _chatId).catch(()=>{});
+          }
         },
-        clearState: async () => await client.sendPresenceUpdate('paused', _chatId).catch(()=>{}),
+        clearState: async () => {
+          if (_isGroup) await client.sendPresenceUpdate('paused', _chatId).catch(()=>{});
+        },
         participants: _isGroup ? (await client.groupMetadata(_chatId)).participants : []
       };
     },
