@@ -142,66 +142,66 @@ async function handleMessage(client, rawMsg) {
 
   let bodyText = '';
   if (rawMsg.message) {
-      if (rawMsg.message.conversation) bodyText = rawMsg.message.conversation;
-      else if (rawMsg.message.extendedTextMessage) bodyText = rawMsg.message.extendedTextMessage.text;
-      else if (rawMsg.message.imageMessage) bodyText = rawMsg.message.imageMessage.caption || '';
-      else if (rawMsg.message.videoMessage) bodyText = rawMsg.message.videoMessage.caption || '';
-      else if (rawMsg.message.buttonsResponseMessage) bodyText = rawMsg.message.buttonsResponseMessage.selectedButtonId;
-      else if (rawMsg.message.listResponseMessage) bodyText = rawMsg.message.listResponseMessage.singleSelectReply.selectedRowId;
-      else if (rawMsg.message.templateButtonReplyMessage) bodyText = rawMsg.message.templateButtonReplyMessage.selectedId;
-      else if (rawMsg.message.interactiveResponseMessage) {
-          const paramsJson = rawMsg.message.interactiveResponseMessage.nativeFlowResponseMessage?.paramsJson;
-          if (paramsJson) {
-              try { bodyText = JSON.parse(paramsJson).id; } catch(e) {}
-          }
+    if (rawMsg.message.conversation) bodyText = rawMsg.message.conversation;
+    else if (rawMsg.message.extendedTextMessage) bodyText = rawMsg.message.extendedTextMessage.text;
+    else if (rawMsg.message.imageMessage) bodyText = rawMsg.message.imageMessage.caption || '';
+    else if (rawMsg.message.videoMessage) bodyText = rawMsg.message.videoMessage.caption || '';
+    else if (rawMsg.message.buttonsResponseMessage) bodyText = rawMsg.message.buttonsResponseMessage.selectedButtonId;
+    else if (rawMsg.message.listResponseMessage) bodyText = rawMsg.message.listResponseMessage.singleSelectReply.selectedRowId;
+    else if (rawMsg.message.templateButtonReplyMessage) bodyText = rawMsg.message.templateButtonReplyMessage.selectedId;
+    else if (rawMsg.message.interactiveResponseMessage) {
+      const paramsJson = rawMsg.message.interactiveResponseMessage.nativeFlowResponseMessage?.paramsJson;
+      if (paramsJson) {
+        try { bodyText = JSON.parse(paramsJson).id; } catch (e) { }
       }
+    }
   }
 
   const msg = {
-      from: _chatId,
-      author: _senderId,
-      body: bodyText,
-      timestamp: rawMsg.messageTimestamp,
-      hasMedia: !!(rawMsg.message && (rawMsg.message.imageMessage || rawMsg.message.videoMessage || rawMsg.message.documentMessage)),
-      hasQuotedMsg: !!(rawMsg.message?.extendedTextMessage?.contextInfo?.quotedMessage),
-      
-      reply: async (content) => {
-          if (typeof content === 'string') {
-              return await client.sendMessage(_chatId, { text: content }, { quoted: rawMsg });
-          } else {
-              return await client.sendMessage(_chatId, content, { quoted: rawMsg });
-          }
-      },
-      
-      getChat: async () => {
-          return {
-              isGroup: _isGroup,
-              sendStateTyping: async () => await client.sendPresenceUpdate('composing', _chatId),
-              clearState: async () => await client.sendPresenceUpdate('paused', _chatId),
-              participants: _isGroup ? (await client.groupMetadata(_chatId)).participants : []
-          };
-      },
-      
-      downloadMedia: async () => {
-          const buffer = await downloadMediaMessage(rawMsg, 'buffer', {}, { logger: require('pino')({level:'silent'})});
-          let mimetype = rawMsg.message?.imageMessage?.mimetype || rawMsg.message?.videoMessage?.mimetype || rawMsg.message?.documentMessage?.mimetype;
-          return { data: buffer.toString('base64'), mimetype: mimetype };
-      },
-      
-      getQuotedMessage: async () => {
-          if (!msg.hasQuotedMsg) return null;
-          const quoted = rawMsg.message.extendedTextMessage.contextInfo.quotedMessage;
-          return {
-              body: quoted.conversation || quoted.extendedTextMessage?.text || quoted.imageMessage?.caption || '',
-              hasMedia: !!(quoted.imageMessage || quoted.videoMessage || quoted.documentMessage),
-              downloadMedia: async () => {
-                  const fakeMsg = { message: quoted };
-                  const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { logger: require('pino')({level:'silent'})});
-                  let mimetype = quoted.imageMessage?.mimetype || quoted.videoMessage?.mimetype || quoted.documentMessage?.mimetype;
-                  return { data: buffer.toString('base64'), mimetype: mimetype };
-              }
-          };
+    from: _chatId,
+    author: _senderId,
+    body: bodyText,
+    timestamp: rawMsg.messageTimestamp,
+    hasMedia: !!(rawMsg.message && (rawMsg.message.imageMessage || rawMsg.message.videoMessage || rawMsg.message.documentMessage)),
+    hasQuotedMsg: !!(rawMsg.message?.extendedTextMessage?.contextInfo?.quotedMessage),
+
+    reply: async (content) => {
+      if (typeof content === 'string') {
+        return await client.sendMessage(_chatId, { text: content }, { quoted: rawMsg });
+      } else {
+        return await client.sendMessage(_chatId, content, { quoted: rawMsg });
       }
+    },
+
+    getChat: async () => {
+      return {
+        isGroup: _isGroup,
+        sendStateTyping: async () => await client.sendPresenceUpdate('composing', _chatId),
+        clearState: async () => await client.sendPresenceUpdate('paused', _chatId),
+        participants: _isGroup ? (await client.groupMetadata(_chatId)).participants : []
+      };
+    },
+
+    downloadMedia: async () => {
+      const buffer = await downloadMediaMessage(rawMsg, 'buffer', {}, { logger: require('pino')({ level: 'silent' }) });
+      let mimetype = rawMsg.message?.imageMessage?.mimetype || rawMsg.message?.videoMessage?.mimetype || rawMsg.message?.documentMessage?.mimetype;
+      return { data: buffer.toString('base64'), mimetype: mimetype };
+    },
+
+    getQuotedMessage: async () => {
+      if (!msg.hasQuotedMsg) return null;
+      const quoted = rawMsg.message.extendedTextMessage.contextInfo.quotedMessage;
+      return {
+        body: quoted.conversation || quoted.extendedTextMessage?.text || quoted.imageMessage?.caption || '',
+        hasMedia: !!(quoted.imageMessage || quoted.videoMessage || quoted.documentMessage),
+        downloadMedia: async () => {
+          const fakeMsg = { message: quoted };
+          const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { logger: require('pino')({ level: 'silent' }) });
+          let mimetype = quoted.imageMessage?.mimetype || quoted.videoMessage?.mimetype || quoted.documentMessage?.mimetype;
+          return { data: buffer.toString('base64'), mimetype: mimetype };
+        }
+      };
+    }
   };
 
   const originalReply = msg.reply.bind(msg);
@@ -260,50 +260,9 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    const menuPesan = `🤖 *MENU SMARTBOT ABSENSI* 🤖
+    const menuPesan = `🤖 *SMARTBOT HADIR* 🤖
 
-*📚 PRODUKTIVITAS & HIBURAN*
-1. *.jadwal* : Menampilkan jadwal kuliah.
-2. *.tugas* : Menampilkan daftar tugas.
-3. *.tanya <teks>* : Bertanya ke AI Pintar / AI Vision.
-4. *.cuaca <kota>* : Mengecek kondisi cuaca.
-5. *.suara <teks>* : Teks jadi Voice Note.
-6. *.ringkas* : (Reply pesan) Ringkas teks panjang.
-7. *.tl <id/en>* : (Reply pesan) Translate teks.
-8. *.susunkata* : Main tebak kata acak di grup.
-9. *.khodam <nama>* : Cek khodam pendamping.
-10. *.truth* / *.dare* : Main Truth or Dare.
-11. *.jodoh @tag1 @tag2* : Ramal kecocokan jodoh.
-12. *.roasting @tag* : Roasting temanmu.
-13. *.gombal @tag* : Kirim gombalan maut.
-14. *.caklontong* : Tebak-tebakan logika ala WIB.
-15. *.cekhoki* : Cek persentase hoki harian.
-16. *.meme <atas>|<bawah>* : Bikin meme dari gambar.
-17. *.nulis <teks>* : Nulis otomatis di buku.
-18. *.tebaklagu* : Main tebak judul lagu.
-
-*🔧 FITUR UTAMA*
-19. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.
-20. *.allabsensi* : Rekap absen minggu ini.
-21. *.cekjadwal* : Cek jadwal aktif hari ini.
-22. *.stiker* : Mengubah foto menjadi stiker.
-23. *!ping* : Mengecek kecepatan respon bot.
-24. *.runtime* : Melihat uptime bot.
-25. *.owner* : Menampilkan info owner bot.
-
-*👑 KHUSUS ADMIN GRUP*
-26. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*
-27. *.hapus_tugas <Nomor>*
-28. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*
-29. *.hapusjadwal <Hari> | <Matkul>*
-30. *.hidetag <Pesan>*
-31. *.setminggu <Angka>*
-32. *.hapusrekap <Tanggal>*
-
-*👑 KHUSUS OWNER*
-33. *.resetbot <Semester>*
-
-_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
+    Silahkan ketik .menu untuk menampilkan fitur bot!!`;
     await msg.reply(menuPesan);
   }
   if (msg.body.toLowerCase() === ".testkas") {
@@ -672,7 +631,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
           isGroupAdmin = true;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const hasAdminAccess = isOwner || isGroupAdmin;
 
@@ -1030,8 +989,8 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     if (activeGames[chatId]) {
       msg.reply(
         "Masih ada permainan yang belum diselesaikan di obrolan ini!\nSusun huruf ini: *" +
-          activeGames[chatId].acak +
-          "*",
+        activeGames[chatId].acak +
+        "*",
       );
       return;
     }
@@ -1372,13 +1331,13 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       "ciee kepo sama ownerkuu yang ganteng imut lucu ini yakk?? xixixi",
     );
     try {
-            const vcard = 'BEGIN:VCARD\n' +
-            'VERSION:3.0\n' + 
-            'FN:RzkyAds\n' +
-            'ORG:Owner Bot;\n' +
-            'item1.TEL;waid=6285704682918:+62 857-0468-2918\n' +
-            'item1.X-ABLabel:Ponsel\n' +
-            'END:VCARD';
+      const vcard = 'BEGIN:VCARD\n' +
+        'VERSION:3.0\n' +
+        'FN:RzkyAds\n' +
+        'ORG:Owner Bot;\n' +
+        'item1.TEL;waid=6285704682918:+62 857-0468-2918\n' +
+        'item1.X-ABLabel:Ponsel\n' +
+        'END:VCARD';
       await client.sendMessage(msg.from, { contacts: { displayName: 'RzkyAds', contacts: [{ vcard }] } });
     } catch (err) {
       console.error("Gagal mengirim kontak owner:", err);
