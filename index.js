@@ -12,6 +12,21 @@ let isBotStarted = false;
 // Store to keep track of contacts
 const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) })
 
+// Mencegah crash akibat unhandled promise rejection (termasuk Bad MAC dari libsignal)
+process.on('unhandledRejection', (reason, promise) => {
+    // Abaikan error Bad MAC dan decrypt message yang sering terjadi dari Channel/Newsletter WhatsApp
+    if (String(reason).includes('Bad MAC') || String(reason).includes('decrypt message')) {
+        return; 
+    }
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+    if (String(err).includes('Bad MAC') || String(err).includes('decrypt message')) {
+        return;
+    }
+    console.error('Uncaught Exception:', err);
+});
+
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('./session');
     const { version, isLatest } = await fetchLatestBaileysVersion();
