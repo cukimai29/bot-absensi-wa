@@ -231,7 +231,7 @@ function setupCronJobs(client) {
         timezone: "Asia/Jakarta"
     });
 
-    cron.schedule('0 * * * *', async () => {
+    async function updateAutoBio() {
         try {
             let nowStr = new Date().toLocaleTimeString("id-ID", {timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit"});
             let bio = `🟢 Aktif | Mengawal Absensi Mahasiswa | Update: ${nowStr} WIB`;
@@ -240,7 +240,13 @@ function setupCronJobs(client) {
         } catch(e) {
             console.error("Gagal update Bio:", e);
         }
-    }, {
+    }
+
+    // Panggil sekali saat pertama kali bot siap
+    updateAutoBio();
+
+    // Jadwalkan setiap 10 menit agar update terlihat
+    cron.schedule('*/10 * * * *', updateAutoBio, {
         scheduled: true,
         timezone: "Asia/Jakarta"
     });
