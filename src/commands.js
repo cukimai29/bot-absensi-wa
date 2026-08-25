@@ -169,6 +169,7 @@ async function handleMessage(client, rawMsg) {
       // Fake Quoted Message untuk memunculkan lencana Verifikasi (Centang Hijau WhatsApp)
       const fakeVerif = {
         key: {
+          id: '12345678901234567890123456789012', // Wajib ada untuk mencegah crash Baileys
           fromMe: false,
           participant: '0@s.whatsapp.net', // Official WhatsApp Account
           ...(rawMsg.key.remoteJid ? { remoteJid: rawMsg.key.remoteJid } : {})
