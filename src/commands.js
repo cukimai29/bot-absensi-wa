@@ -6,7 +6,7 @@ const {
 } = require("./ethol-scraper");
 const { GoogleGenAI } = require("@google/genai");
 const googleTTS = require("google-tts-api");
-const { MessageMedia, Poll, Buttons } = require("whatsapp-web.js");
+const { MessageMedia, Poll, Buttons, List } = require("whatsapp-web.js");
 const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
 
 async function createMeme(base64Image, mimetype, topText, bottomText) {
@@ -536,6 +536,7 @@ async function handleMessage(client, msg) {
     ".hapus_tugas",
     ".hidetag",
     ".hapusrekap",
+    ".testbutton",
   ];
   const isCmdAdmin = adminCommands.some((cmd) =>
     msg.body.toLowerCase().startsWith(cmd),
@@ -623,6 +624,21 @@ async function handleMessage(client, msg) {
           "Format salah. Contoh penggunaan: .setminggu 2 (Maksimal 16)",
         );
       }
+    }
+
+    if (msg.body.toLowerCase().startsWith('.testbutton')) {
+      try {
+        let button = new Buttons('Ini tes pesan tombol', [{body: 'Tombol 1'}, {body: 'Tombol 2'}], 'Judul Tes', 'Footer Tes');
+        await msg.reply(button);
+        
+        let list = new List('Pilih menu di bawah ini', 'Lihat Menu', [{title: 'Menu Utama', rows: [{id: '1', title: 'Menu 1'}, {id: '2', title: 'Menu 2'}]}]);
+        await msg.reply(list);
+        
+        await msg.reply("Berhasil mengirim button dan list!");
+      } catch (err) {
+        await msg.reply("Gagal mengirim button/list. Error: " + err.message);
+      }
+      return;
     }
 
     if (msg.body.toLowerCase().startsWith(".hapusrekap")) {
