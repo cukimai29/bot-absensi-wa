@@ -161,21 +161,27 @@ async function handleMessage(client, rawMsg) {
     }
   }
 
+  // Cek apakah ini sebuah perintah (dimulai dengan . atau kata kunci khusus)
+  const isCommand = bodyText.startsWith('.') || bodyText.toLowerCase() === 'bot' || bodyText.toLowerCase().includes("assalamu");
+  
   // Anti-Spam Check
-  if (bodyText.startsWith('.')) {
+  if (isCommand) {
     const now = Date.now();
     const lastTime = userCooldowns.get(_senderId) || 0;
+    
     if (now - lastTime < COOLDOWN_MS) {
-      if (now - lastTime > COOLDOWN_MS - 2000) {
-        // Hanya peringatkan jika belum lama
-        await client.sendMessage(_chatId, { text: "⏳ *Woah, pelan-pelan!* Sistem mendeteksi Spam. Silakan tunggu beberapa detik sebelum menggunakan perintah bot lagi." }, { quoted: rawMsg });
+      // Jika jarak spam lebih dari 500ms (untuk menghindari loop peringatan berkali-kali)
+      if (now - lastTime > 500) {
+        await client.sendMessage(_chatId, { text: "⏳ *Woah, pelan-pelan!* Sistem mendeteksi Spam. Silakan tunggu 3 detik sebelum menggunakan perintah bot lagi." }, { quoted: rawMsg });
+        // Reset waktu agar hukuman bertambah jika dia nge-spam lagi
+        userCooldowns.set(_senderId, now); 
       }
-      return; // Ignore the message
+      return; // Abaikan pesannya
     }
     userCooldowns.set(_senderId, now);
     
     // Smart React: Tanda Sedang Diproses
-    await client.sendMessage(_chatId, { react: { text: "⏳", key: rawMsg.key } });
+    await client.sendMessage(_chatId, { react: { text: "⏳", key: rawMsg.key } }).catch(()=>{});
   }
 
   const fakeVerif = {
