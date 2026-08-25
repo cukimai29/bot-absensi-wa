@@ -1314,11 +1314,12 @@ Silakan pilih menu dengan mengetik perintah berikut:
       "ciee kepo sama ownerkuu yang ganteng imut lucu ini yakk?? xixixi",
     );
     try {
-            const vcard = 'BEGIN:VCARD\\n' +
-            'VERSION:3.0\\n' + 
-            'FN:RzkyAds\\n' +
-            'ORG:Owner Bot;\\n' +
-            'TEL;type=CELL;type=VOICE;waid=6285704682918:+6285704682918\\n' +
+            const vcard = 'BEGIN:VCARD\n' +
+            'VERSION:3.0\n' + 
+            'FN:RzkyAds\n' +
+            'ORG:Owner Bot;\n' +
+            'item1.TEL;waid=6285704682918:+62 857-0468-2918\n' +
+            'item1.X-ABLabel:Ponsel\n' +
             'END:VCARD';
       await client.sendMessage(msg.from, { contacts: { displayName: 'RzkyAds', contacts: [{ vcard }] } });
     } catch (err) {
