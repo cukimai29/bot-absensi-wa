@@ -260,56 +260,22 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    const menuPesan = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖\n\nSilakan pilih menu dari daftar di bawah ini!`;
-    const sections = [
-        {
-            title: "Fitur Umum",
-            rows: [
-                { title: "📚 Tugas", id: ".tugas" },
-                { title: "📅 Jadwal", id: ".jadwal" },
-                { title: "🎮 Mini Games", id: ".susunkata" },
-                { title: "🌤 Cuaca", id: ".cuaca" }
-            ]
-        },
-        {
-            title: "Fitur Sistem",
-            rows: [
-                { title: "📋 Rekap Absen", id: ".allabsensi" },
-                { title: "🤖 Status Bot", id: ".runtime" },
-                { title: "👑 Owner", id: ".owner" }
-            ]
-        }
-    ];
+    const menuPesan = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖
 
-    const { generateWAMessageFromContent, proto } = require("@whiskeysockets/baileys");
-    
-    const menuMessage = {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                interactiveMessage: proto.Message.InteractiveMessage.create({
-                    body: proto.Message.InteractiveMessage.Body.create({ text: menuPesan }),
-                    footer: proto.Message.InteractiveMessage.Footer.create({ text: "SmartBot Absensi" }),
-                    header: proto.Message.InteractiveMessage.Header.create({
-                        title: "MENU BOT",
-                        hasMediaAttachment: false
-                    }),
-                    nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
-                        buttons: [{
-                            name: "single_select",
-                            buttonParamsJson: JSON.stringify({
-                                title: "Pilih Menu",
-                                sections: sections
-                            })
-                        }]
-                    })
-                })
-            }
-        }
-    };
+Silakan pilih menu dengan mengetik perintah berikut:
 
-    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: client.user.id });
-    await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
+*Fitur Umum:*
+📚 *.tugas* - Daftar tugas
+📅 *.jadwal* - Jadwal kuliah
+🎮 *.susunkata* - Mini games
+🌤 *.cuaca* - Info cuaca
+
+*Fitur Sistem:*
+📋 *.allabsensi* - Rekap absen
+🤖 *.runtime* - Status bot
+👑 *.owner* - Info owner`;
+
+    await msg.reply(menuPesan);
   }
   if (msg.body.toLowerCase() === ".testkas") {
     msg.reply(
@@ -338,56 +304,22 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === ".menu" || msg.body.toLowerCase() === ".help") {
-    const menuPesan = `🤖 *SMARTBOT ABSENSI* 🤖\n\nSilakan pilih menu dari daftar di bawah ini!`;
-    const sections = [
-        {
-            title: "Fitur Umum",
-            rows: [
-                { title: "📚 Tugas", id: ".tugas" },
-                { title: "📅 Jadwal", id: ".jadwal" },
-                { title: "🎮 Mini Games", id: ".susunkata" },
-                { title: "🌤 Cuaca", id: ".cuaca" }
-            ]
-        },
-        {
-            title: "Fitur Sistem",
-            rows: [
-                { title: "📋 Rekap Absen", id: ".allabsensi" },
-                { title: "🤖 Status Bot", id: ".runtime" },
-                { title: "👑 Owner", id: ".owner" }
-            ]
-        }
-    ];
+    const menuPesan = `🤖 *SMARTBOT ABSENSI* 🤖
 
-    const { generateWAMessageFromContent, proto } = require("@whiskeysockets/baileys");
-    
-    const menuMessage = {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                interactiveMessage: proto.Message.InteractiveMessage.create({
-                    body: proto.Message.InteractiveMessage.Body.create({ text: menuPesan }),
-                    footer: proto.Message.InteractiveMessage.Footer.create({ text: "SmartBot Absensi" }),
-                    header: proto.Message.InteractiveMessage.Header.create({
-                        title: "MENU BOT",
-                        hasMediaAttachment: false
-                    }),
-                    nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
-                        buttons: [{
-                            name: "single_select",
-                            buttonParamsJson: JSON.stringify({
-                                title: "Pilih Menu",
-                                sections: sections
-                            })
-                        }]
-                    })
-                })
-            }
-        }
-    };
+Silakan pilih menu dengan mengetik perintah berikut:
 
-    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: client.user.id });
-    await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
+*Fitur Umum:*
+📚 *.tugas* - Daftar tugas
+📅 *.jadwal* - Jadwal kuliah
+🎮 *.susunkata* - Mini games
+🌤 *.cuaca* - Info cuaca
+
+*Fitur Sistem:*
+📋 *.allabsensi* - Rekap absen
+🤖 *.runtime* - Status bot
+👑 *.owner* - Info owner`;
+
+    await msg.reply(menuPesan);
   }
 
   if (msg.body.toLowerCase().startsWith(".tanya")) {
@@ -1386,7 +1318,7 @@ async function handleMessage(client, rawMsg) {
             'VERSION:3.0\\n' + 
             'FN:RzkyAds\\n' +
             'ORG:Owner Bot;\\n' +
-            'TEL;type=CELL;type=VOICE;waid=6285704682918:+62 857-0468-2918\\n' +
+            'TEL;type=CELL;type=VOICE;waid=6285704682918:+6285704682918\\n' +
             'END:VCARD';
       await client.sendMessage(msg.from, { contacts: { displayName: 'RzkyAds', contacts: [{ vcard }] } });
     } catch (err) {
