@@ -49,9 +49,12 @@ async function startBot() {
     });
 
     client.ev.on('messages.upsert', async (m) => {
+        console.log("MESSAGES UPSERT EVENT:", JSON.stringify(m, null, 2));
         if (m.type !== 'notify') return;
         const msg = m.messages[0];
         if (!msg.message) return;
+        
+        console.log("Processing message from:", msg.key.remoteJid, "Body:", msg.message?.conversation || msg.message?.extendedTextMessage?.text);
         
         // Handle message
         await handleMessage(client, msg);
