@@ -260,7 +260,50 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    const menuPesan = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖\n\nSilakan pilih menu dengan mengetik perintah berikut:\n\n*Fitur Umum:*\n📚 *.tugas* - Daftar tugas\n📅 *.jadwal* - Jadwal kuliah\n🎮 *.susunkata* - Mini games\n🌤 *.cuaca* - Info cuaca\n\n*Fitur Sistem:*\n📋 *.allabsensi* - Rekap absen\n🤖 *.runtime* - Status bot\n👑 *.owner* - Info owner`;
+    const menuPesan = `🤖 *MENU SMARTBOT ABSENSI* 🤖
+
+*📚 PRODUKTIVITAS & HIBURAN*
+1. *.jadwal* : Menampilkan jadwal kuliah.
+2. *.tugas* : Menampilkan daftar tugas.
+3. *.tanya <teks>* : Bertanya ke AI Pintar / AI Vision.
+4. *.cuaca <kota>* : Mengecek kondisi cuaca.
+5. *.suara <teks>* : Teks jadi Voice Note.
+6. *.ringkas* : (Reply pesan) Ringkas teks panjang.
+7. *.tl <id/en>* : (Reply pesan) Translate teks.
+8. *.susunkata* : Main tebak kata acak di grup.
+9. *.khodam <nama>* : Cek khodam pendamping.
+10. *.truth* / *.dare* : Main Truth or Dare.
+11. *.jodoh @tag1 @tag2* : Ramal kecocokan jodoh.
+12. *.roasting @tag* : Roasting temanmu.
+13. *.gombal @tag* : Kirim gombalan maut.
+14. *.caklontong* : Tebak-tebakan logika ala WIB.
+15. *.cekhoki* : Cek persentase hoki harian.
+16. *.meme <atas>|<bawah>* : Bikin meme dari gambar.
+17. *.nulis <teks>* : Nulis otomatis di buku.
+18. *.tebaklagu* : Main tebak judul lagu.
+
+*🔧 FITUR UTAMA*
+19. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.
+20. *.allabsensi* : Rekap absen minggu ini.
+21. *.cekjadwal* : Cek jadwal aktif hari ini.
+22. *.stiker* : Mengubah foto menjadi stiker.
+23. *!ping* : Mengecek kecepatan respon bot.
+24. *.runtime* : Melihat uptime bot.
+25. *.owner* : Menampilkan info owner bot.
+
+*👑 KHUSUS ADMIN GRUP*
+26. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*
+27. *.hapus_tugas <Nomor>*
+28. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*
+29. *.hapusjadwal <Hari> | <Matkul>*
+30. *.hidetag <Pesan>*
+31. *.setminggu <Angka>*
+32. *.hapusrekap <Tanggal>*
+
+*👑 KHUSUS OWNER*
+33. *.resetbot <Semester>*
+
+_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
     await msg.reply(menuPesan);
   }
   if (msg.body.toLowerCase() === ".testkas") {
@@ -290,7 +333,50 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === ".menu" || msg.body.toLowerCase() === ".help") {
-    const menuPesan = `🤖 *SMARTBOT ABSENSI* 🤖\n\nSilakan pilih menu dengan mengetik perintah berikut:\n\n*Fitur Umum:*\n📚 *.tugas* - Daftar tugas\n📅 *.jadwal* - Jadwal kuliah\n🎮 *.susunkata* - Mini games\n🌤 *.cuaca* - Info cuaca\n\n*Fitur Sistem:*\n📋 *.allabsensi* - Rekap absen\n🤖 *.runtime* - Status bot\n👑 *.owner* - Info owner`;
+    const menuPesan = `🤖 *MENU SMARTBOT ABSENSI* 🤖
+
+*📚 PRODUKTIVITAS & HIBURAN*
+1. *.jadwal* : Menampilkan jadwal kuliah.
+2. *.tugas* : Menampilkan daftar tugas.
+3. *.tanya <teks>* : Bertanya ke AI Pintar / AI Vision.
+4. *.cuaca <kota>* : Mengecek kondisi cuaca.
+5. *.suara <teks>* : Teks jadi Voice Note.
+6. *.ringkas* : (Reply pesan) Ringkas teks panjang.
+7. *.tl <id/en>* : (Reply pesan) Translate teks.
+8. *.susunkata* : Main tebak kata acak di grup.
+9. *.khodam <nama>* : Cek khodam pendamping.
+10. *.truth* / *.dare* : Main Truth or Dare.
+11. *.jodoh @tag1 @tag2* : Ramal kecocokan jodoh.
+12. *.roasting @tag* : Roasting temanmu.
+13. *.gombal @tag* : Kirim gombalan maut.
+14. *.caklontong* : Tebak-tebakan logika ala WIB.
+15. *.cekhoki* : Cek persentase hoki harian.
+16. *.meme <atas>|<bawah>* : Bikin meme dari gambar.
+17. *.nulis <teks>* : Nulis otomatis di buku.
+18. *.tebaklagu* : Main tebak judul lagu.
+
+*🔧 FITUR UTAMA*
+19. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.
+20. *.allabsensi* : Rekap absen minggu ini.
+21. *.cekjadwal* : Cek jadwal aktif hari ini.
+22. *.stiker* : Mengubah foto menjadi stiker.
+23. *!ping* : Mengecek kecepatan respon bot.
+24. *.runtime* : Melihat uptime bot.
+25. *.owner* : Menampilkan info owner bot.
+
+*👑 KHUSUS ADMIN GRUP*
+26. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*
+27. *.hapus_tugas <Nomor>*
+28. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*
+29. *.hapusjadwal <Hari> | <Matkul>*
+30. *.hidetag <Pesan>*
+31. *.setminggu <Angka>*
+32. *.hapusrekap <Tanggal>*
+
+*👑 KHUSUS OWNER*
+33. *.resetbot <Semester>*
+
+_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
     await msg.reply(menuPesan);
   }
 
