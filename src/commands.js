@@ -260,50 +260,22 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    const menuPesan = `Hadirr, siap membantu!\n\nSilakan pilih menu dari tombol di bawah ini!`;
-    const sections = [
-        {
-            title: "Fitur Umum",
-            rows: [
-                { title: "📚 Tugas", id: ".tugas" },
-                { title: "📅 Jadwal", id: ".jadwal" },
-                { title: "🎮 Mini Games", id: ".susunkata" },
-                { title: "🌤 Cuaca", id: ".cuaca" }
-            ]
-        },
-        {
-            title: "Fitur Sistem",
-            rows: [
-                { title: "📋 Rekap Absen", id: ".allabsensi" },
-                { title: "🤖 Status Bot", id: ".runtime" },
-                { title: "👑 Owner", id: ".owner" }
-            ]
-        }
-    ];
+    const menuPesan = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖
 
-    const menuMessage = {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                interactiveMessage: {
-                    body: { text: menuPesan },
-                    nativeFlowMessage: {
-                        buttons: [{
-                            name: "single_select",
-                            buttonParamsJson: JSON.stringify({
-                                title: "PILIH MENU",
-                                sections: sections
-                            })
-                        }]
-                    }
-                }
-            }
-        }
-    };
+Silakan pilih menu dengan mengetik perintah berikut:
 
-    const { generateWAMessageFromContent } = require("@whiskeysockets/baileys");
-    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: client.user.id });
-    await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
+*Fitur Umum:*
+📚 *.tugas* - Daftar tugas
+📅 *.jadwal* - Jadwal kuliah
+🎮 *.susunkata* - Mini games
+🌤 *.cuaca* - Info cuaca
+
+*Fitur Sistem:*
+📋 *.allabsensi* - Rekap absen
+🤖 *.runtime* - Status bot
+👑 *.owner* - Info owner`;
+
+    await msg.reply(menuPesan);
   }
   if (msg.body.toLowerCase() === ".testkas") {
     msg.reply(
@@ -331,53 +303,23 @@ async function handleMessage(client, rawMsg) {
     msg.reply("Waalaikumsalam");
   }
 
-  if (msg.body.toLowerCase() === ".menu") {
-        const menuPesan = `*MENU SMARTBOT ABSENSI*
+  if (msg.body.toLowerCase() === ".menu" || msg.body.toLowerCase() === ".help") {
+    const menuPesan = `🤖 *SMARTBOT ABSENSI* 🤖
 
-Silakan pilih menu dari tombol di bawah ini!`;
-    const sections = [
-        {
-            title: "Fitur Umum",
-            rows: [
-                { title: "📚 Tugas", id: ".tugas" },
-                { title: "📅 Jadwal", id: ".jadwal" },
-                { title: "🎮 Mini Games", id: ".susunkata" },
-                { title: "🌤 Cuaca", id: ".cuaca" }
-            ]
-        },
-        {
-            title: "Fitur Sistem",
-            rows: [
-                { title: "📋 Rekap Absen", id: ".allabsensi" },
-                { title: "🤖 Status Bot", id: ".runtime" },
-                { title: "👑 Owner", id: ".owner" }
-            ]
-        }
-    ];
+Silakan pilih menu dengan mengetik perintah berikut:
 
-    const menuMessage = {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                interactiveMessage: {
-                    body: { text: menuPesan },
-                    nativeFlowMessage: {
-                        buttons: [{
-                            name: "single_select",
-                            buttonParamsJson: JSON.stringify({
-                                title: "PILIH MENU",
-                                sections: sections
-                            })
-                        }]
-                    }
-                }
-            }
-        }
-    };
+*Fitur Umum:*
+📚 *.tugas* - Daftar tugas
+📅 *.jadwal* - Jadwal kuliah
+🎮 *.susunkata* - Mini games
+🌤 *.cuaca* - Info cuaca
 
-    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: client.user.id });
-    await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
+*Fitur Sistem:*
+📋 *.allabsensi* - Rekap absen
+🤖 *.runtime* - Status bot
+👑 *.owner* - Info owner`;
 
+    await msg.reply(menuPesan);
   }
 
   if (msg.body.toLowerCase().startsWith(".tanya")) {
