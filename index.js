@@ -66,10 +66,10 @@ async function startBot() {
             console.log("POLL MSG FOUND IN STORE:", !!pollMsg);
             
             if (pollMsg) {
-                const { getAggregateVotesInPollMessage, decryptPollVote } = require('@whiskeysockets/baileys');
+                const { getAggregateVotesInPollMessage, decryptPollVote, jidNormalizedUser } = require('@whiskeysockets/baileys');
                 try {
-                    const meId = client.user.id.split(':')[0] + '@s.whatsapp.net';
-                    const pollCreatorJid = pollKey.participant || pollKey.remoteJid;
+                    const meIdNormalised = jidNormalizedUser(client.user.id);
+                    const pollCreatorJid = pollMsg.key.fromMe ? meIdNormalised : (pollKey.participant || pollKey.remoteJid);
                     const voterJid = msg.key.participant || msg.key.remoteJid;
                     
                     const decryptedVote = decryptPollVote(
