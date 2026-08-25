@@ -6,4 +6,5 @@ node_modules/
 auth.zip
 absensi_data.json
 package-lock.json
+test-kas.js
 .env

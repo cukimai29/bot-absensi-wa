@@ -2,9 +2,14 @@ const https = require('https');
 const { loadData, saveData } = require('../database');
 
 function getGvizUrl(inputUrl) {
-    const match = inputUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    if (match && match[1]) {
-        return `https://docs.google.com/spreadsheets/d/${match[1]}/gviz/tq?tqx=out:json`;
+    const idMatch = inputUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    const gidMatch = inputUrl.match(/gid=([0-9]+)/);
+    if (idMatch && idMatch[1]) {
+        let gvizUrl = `https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:json`;
+        if (gidMatch && gidMatch[1]) {
+            gvizUrl += `&gid=${gidMatch[1]}`;
+        }
+        return gvizUrl;
     }
     return inputUrl;
 }
@@ -47,27 +52,60 @@ async function checkKasAndSend(client, targetGroupId, manualTrigger = false) {
         if (!rows || rows.length < 3) {
             throw new Error('Data spreadsheet kosong atau tidak valid.');
         }
-        // Ambil nominal kas mingguan dari Row 0 Kolom U (indeks 20)
-        const weeklyDues = rows[0].c[20] ? rows[0].c[20].v : 5000;
+        // Cari posisi kolom nama, NRP, dan nominal kas secara dinamis
+        let weeklyDues = 5000;
+        // Cari nominal kas dari sel pertama di baris 0 yang memiliki nilai angka
+        if (rows[0] && rows[0].c) {
+            for (let c of rows[0].c) {
+                if (c && typeof c.v === 'number' && c.v > 0) {
+                    weeklyDues = c.v;
+                    break;
+                }
+            }
+        }
+
         const debtors = [];
-        // Parsing baris dimulai dari baris ke-3 (indeks 2)
-        for (let i = 2; i < rows.length; i++) {
+
+        // Parsing baris mahasiswa
+        for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
-            if (!row.c || !row.c[1]) continue;
-            const name = row.c[1].v ? row.c[1].v.trim() : null;
-            if (!name) continue;
-            const nrp = row.c[2] ? row.c[2].v : null;
-            // Pastikan baris ini adalah baris mahasiswa dengan memverifikasi NRP berupa angka
-            if (typeof nrp !== 'number') continue;
+            if (!row || !row.c) continue;
+
+            // Cari indeks kolom nama dan NRP pada baris ini
+            let nameCol = -1;
+            let nrpCol = -1;
+
+            for (let cIdx = 0; cIdx < row.c.length; cIdx++) {
+                const cell = row.c[cIdx];
+                if (!cell || cell.v === null || cell.v === undefined) continue;
+
+                // Cek jika nilai berupa angka NRP (dimulai 24... atau 10 digit)
+                if (typeof cell.v === 'number' && String(cell.v).length >= 8 && nrpCol === -1) {
+                    nrpCol = cIdx;
+                } else if (typeof cell.v === 'string' && cell.v.trim().length > 2 && cell.v.trim() !== 'Nama Lengkap' && cell.v.trim() !== 'KETERANGAN' && nameCol === -1 && nrpCol === -1) {
+                    nameCol = cIdx;
+                }
+            }
+
+            if (nameCol === -1 || nrpCol === -1) continue;
+
+            const name = row.c[nameCol].v.trim();
+            const nrp = row.c[nrpCol].v;
+
+            // Kolom minggu ke-1 dimulai 2 kolom setelah NRP (setelah Kolom Tanggal Lahir)
+            let week1Col = nrpCol + 2;
+
             // Periksa minggu yang belum dibayar s.d. minggu perkuliahan aktif saat ini
             const unpaidWeeks = [];
             for (let w = 1; w <= currentWeek; w++) {
-                const cell = row.c[3 + w]; // Kolom E (indeks 4) adalah Minggu 1
+                const cellIndex = week1Col + (w - 1);
+                const cell = row.c[cellIndex];
                 const isPaid = cell ? !!cell.v : false;
                 if (!isPaid) {
                     unpaidWeeks.push(w);
                 }
             }
+
             // Jika ada minggu yang menunggak, masukkan ke daftar tunggakan
             if (unpaidWeeks.length > 0) {
                 const totalOwed = unpaidWeeks.length * weeklyDues;
