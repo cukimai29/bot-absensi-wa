@@ -178,7 +178,7 @@ function setupCronJobs(client) {
 
         saveData(data);
 
-        client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesan }).catch(err => console.error("Gagal mengirim pengumuman ganti minggu:", err));
+        client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesan }, { quoted: fakeVerif }).catch(err => console.error("Gagal mengirim pengumuman ganti minggu:", err));
     }, {
         scheduled: true,
         timezone: "Asia/Jakarta"
@@ -217,10 +217,10 @@ function setupCronJobs(client) {
             try {
                 let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
                 let participants = metadata.participants.map(p => p.id);
-                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: `🔊 *PENGUMUMAN*\n\n${pesanAkhir}`, mentions: participants });
+                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: `🔊 *PENGUMUMAN*\n\n${pesanAkhir}`, mentions: participants }, { quoted: fakeVerif });
             } catch (err) {
                 console.error("Gagal get chat untuk hidetag reminder:", err);
-                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanAkhir }).catch(console.error);
+                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanAkhir }, { quoted: fakeVerif }).catch(console.error);
             }
             console.log(`[Pengingat Tugas] Berhasil mengirim peringatan hidetag untuk ${count} tugas.`);
         }
@@ -229,16 +229,21 @@ function setupCronJobs(client) {
         timezone: "Asia/Jakarta"
     });
 
+    const fakeVerif = {
+        key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: process.env.TARGET_GROUP_ID },
+        message: { conversation: "SMARTBOT by RzkyAds" }
+    };
+
     cron.schedule('0 5 * * *', async () => {
         const pesanSubuh = `🌅 *SELAMAT PAGI SEMUANYA!* 🌅\n\nJangan lupa untuk segera bangun dan melaksanakan sholat subuh bagi yang menjalankan. Awali hari dengan doa agar dilancarkan segala urusannya!\n\n💸 *REMINDER KAS KELAS* 💸\nSekalian ngingetin buat teman-teman yang belum bayar uang kas kelas, yuk segera dilunasi ke bendahara agar keuangan kelas kita tetap sehat dan lancar!`;
         
         try {
             let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
             let participants = metadata.participants.map(p => p.id);
-            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh, mentions: participants });
+            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh, mentions: participants }, { quoted: fakeVerif });
         } catch (err) {
             console.error("Gagal get chat untuk hidetag subuh:", err);
-            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh }).catch(console.error);
+            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh }, { quoted: fakeVerif }).catch(console.error);
         }
         console.log(`[Pengingat Pagi] Berhasil mengirim hidetag sholat subuh dan kas kelas.`);
     }, {
