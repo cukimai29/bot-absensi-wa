@@ -3,7 +3,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const cron = require('node-cron');
 const { loadData, saveData } = require('./src/database');
-const { checkPortal } = require('./src/ethol-scraper');
+const { checkPortal, intensiveCheckPortal } = require('./src/ethol-scraper');
 const { handleMessage } = require('./src/commands');
 
 const client = new Client({
@@ -36,12 +36,61 @@ client.on('qr', (qr) => {
 });
 
 let isBotStarted = false;
+let scheduledJobs = [];
+
+function scheduleTodayClasses(client) {
+    scheduledJobs.forEach(job => job.stop());
+    scheduledJobs = [];
+
+    const namaHari = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+    let todayStr = new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"});
+    let todayName = namaHari[new Date(todayStr).getDay()];
+
+    let data = loadData();
+    if (data.daftar_jadwal && data.daftar_jadwal[todayName]) {
+        let jadwalHariIni = data.daftar_jadwal[todayName];
+        console.log(`[JADWAL] Menyiapkan ${jadwalHariIni.length} jadwal pengecekan intensif untuk hari ${todayName}.`);
+
+        jadwalHariIni.forEach(jadwal => {
+            let jamParts = jadwal.jam.split(':');
+            if (jamParts.length >= 2) {
+                let hour = parseInt(jamParts[0]);
+                let minute = parseInt(jamParts[1]);
+
+                let job = cron.schedule(`${minute} ${hour} * * *`, () => {
+                    console.log(`[ALARM] Waktu kuliah ${jadwal.matkul} tiba. Memulai pengecekan absen intensif (10 menit).`);
+                    intensiveCheckPortal(client, jadwal.matkul);
+                }, {
+                    scheduled: true,
+                    timezone: "Asia/Jakarta"
+                });
+                
+                scheduledJobs.push(job);
+                console.log(`[JADWAL] -> ${jadwal.matkul} dijadwalkan pada ${jadwal.jam}.`);
+            }
+        });
+    } else {
+        console.log(`[JADWAL] Tidak ada kelas pada hari ${todayName}.`);
+    }
+}
 
 client.on('ready', () => {
     console.log('Bot WhatsApp sudah siap dan terhubung!');
 
     if (!isBotStarted) {
         isBotStarted = true;
+        
+        // Atur jadwal kelas hari ini
+        scheduleTodayClasses(client);
+
+        // Cron job setiap jam 00:01 malam untuk mereset dan membaca jadwal besok harinya
+        cron.schedule('1 0 * * *', () => {
+            console.log('[SISTEM] Membaca jadwal baru untuk hari ini...');
+            scheduleTodayClasses(client);
+        }, {
+            scheduled: true,
+            timezone: "Asia/Jakarta"
+        });
 
         function scheduleRandomCheck() {
             const now = new Date();
