@@ -180,8 +180,10 @@ async function handleMessage(client, rawMsg) {
     }
     userCooldowns.set(_senderId, now);
     
-    // Smart React: Tanda Sedang Diproses
-    await client.sendMessage(_chatId, { react: { text: "⏳", key: rawMsg.key } }).catch(()=>{});
+    // Smart React: Tanda Sedang Diproses (Hanya di Grup untuk menghindari error E2E)
+    if (_isGroup) {
+      await client.sendMessage(_chatId, { react: { text: "⏳", key: rawMsg.key } }).catch(()=>{});
+    }
   }
 
   const fakeVerif = {
@@ -263,10 +265,10 @@ async function handleMessage(client, rawMsg) {
       const delay = Math.floor(Math.random() * 2000) + 1500;
       await new Promise((resolve) => setTimeout(resolve, delay));
       await chat.clearState();
-      await msg.react('✅').catch(()=>{});
+      if (_isGroup) await msg.react('✅').catch(()=>{});
       return await originalReply(content, chatId, options);
     } catch (err) {
-      await msg.react('❌').catch(()=>{});
+      if (_isGroup) await msg.react('❌').catch(()=>{});
       return await originalReply(content, chatId, options);
     }
   };
