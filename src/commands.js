@@ -260,24 +260,8 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    const pollName = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖\n\nSilakan pilih menu dari daftar di bawah ini:`;
-    const pollOptions = [
-      ".tugas",
-      ".jadwal",
-      ".susunkata",
-      ".cuaca",
-      ".allabsensi",
-      ".runtime",
-      ".owner"
-    ];
-
-    await client.sendMessage(msg.from, {
-      poll: {
-        name: pollName,
-        values: pollOptions,
-        selectableCount: 1
-      }
-    });
+    const menuPesan = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖\n\nSilakan pilih menu dengan mengetik perintah berikut:\n\n*Fitur Umum:*\n📚 *.tugas* - Daftar tugas\n📅 *.jadwal* - Jadwal kuliah\n🎮 *.susunkata* - Mini games\n🌤 *.cuaca* - Info cuaca\n\n*Fitur Sistem:*\n📋 *.allabsensi* - Rekap absen\n🤖 *.runtime* - Status bot\n👑 *.owner* - Info owner`;
+    await msg.reply(menuPesan);
   }
   if (msg.body.toLowerCase() === ".testkas") {
     msg.reply(
@@ -306,24 +290,8 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === ".menu" || msg.body.toLowerCase() === ".help") {
-    const pollName = `🤖 *SMARTBOT ABSENSI* 🤖\n\nSilakan pilih menu dari daftar di bawah ini:`;
-    const pollOptions = [
-      ".tugas",
-      ".jadwal",
-      ".susunkata",
-      ".cuaca",
-      ".allabsensi",
-      ".runtime",
-      ".owner"
-    ];
-
-    await client.sendMessage(msg.from, {
-      poll: {
-        name: pollName,
-        values: pollOptions,
-        selectableCount: 1
-      }
-    });
+    const menuPesan = `🤖 *SMARTBOT ABSENSI* 🤖\n\nSilakan pilih menu dengan mengetik perintah berikut:\n\n*Fitur Umum:*\n📚 *.tugas* - Daftar tugas\n📅 *.jadwal* - Jadwal kuliah\n🎮 *.susunkata* - Mini games\n🌤 *.cuaca* - Info cuaca\n\n*Fitur Sistem:*\n📋 *.allabsensi* - Rekap absen\n🤖 *.runtime* - Status bot\n👑 *.owner* - Info owner`;
+    await msg.reply(menuPesan);
   }
 
   if (msg.body.toLowerCase().startsWith(".tanya")) {

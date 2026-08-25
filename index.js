@@ -58,64 +58,6 @@ async function startBot() {
     client.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         if (!msg.message) return;
-        
-        if (msg.message.pollUpdateMessage) {
-            console.log("RAW POLL UPDATE UPSERT:", JSON.stringify(msg, null, 2));
-            const pollKey = msg.message.pollUpdateMessage.pollCreationMessageKey;
-            const pollMsg = await store.loadMessage(pollKey.remoteJid, pollKey.id);
-            console.log("POLL MSG FOUND IN STORE:", !!pollMsg);
-            
-            if (pollMsg) {
-                const { getAggregateVotesInPollMessage, decryptPollVote, jidNormalizedUser } = require('@whiskeysockets/baileys');
-                try {
-                    const meIdNormalised = jidNormalizedUser(client.user.id);
-                    const pollCreatorJid = pollMsg.key.fromMe ? meIdNormalised : (pollKey.participant || pollKey.remoteJid);
-                    const voterJid = msg.key.participant || msg.key.remoteJid;
-                    
-                    const decryptedVote = decryptPollVote(
-                        msg.message.pollUpdateMessage.vote,
-                        {
-                            pollCreatorJid,
-                            pollMsgId: pollKey.id,
-                            pollEncKey: pollMsg.message.messageContextInfo.messageSecret,
-                            voterJid
-                        }
-                    );
-                    
-                    const formattedUpdate = {
-                        pollUpdateMessageKey: msg.key,
-                        vote: decryptedVote,
-                        senderTimestampMs: msg.messageTimestamp
-                    };
-                    
-                    const pollVotes = getAggregateVotesInPollMessage({
-                        message: pollMsg.message,
-                        pollUpdates: [formattedUpdate]
-                    });
-                    console.log("MANUAL DECRYPTION VOTES:", JSON.stringify(pollVotes, null, 2));
-                    
-                    const selectedOption = pollVotes.find(v => v.voters.length > 0);
-                    if (selectedOption) {
-                        const command = selectedOption.name;
-                        console.log("COMMAND SELECTED FROM MANUAL:", command);
-                        const fakeMsg = {
-                            key: { remoteJid: msg.key.remoteJid, fromMe: false, id: msg.key.id },
-                            message: { conversation: command },
-                            messageTimestamp: Math.floor(Date.now() / 1000),
-                            pushName: msg.pushName || 'User'
-                        };
-                        try {
-                            await handleMessage(client, fakeMsg);
-                        } catch (err) {
-                            console.error("Error processing manual poll vote:", err);
-                        }
-                    }
-                } catch (e) {
-                    console.error("Manual decryption failed:", e);
-                }
-            }
-        }
-
         if (msg.key.fromMe) return; // Ignore bot's own messages
         
         // Cek pesan agar tidak memproses pesan basi (di atas 2 menit)
@@ -127,43 +69,6 @@ async function startBot() {
             await handleMessage(client, msg);
         } catch (err) {
             console.error("Error processing message:", err);
-        }
-    });
-
-    client.ev.on('messages.update', async (updates) => {
-        console.log("MESSAGES UPDATE EVENT:", JSON.stringify(updates, null, 2));
-        for (const { key, update } of updates) {
-            if (update.pollUpdates) {
-                console.log("POLL UPDATE RECEIVED:", JSON.stringify(update.pollUpdates, null, 2));
-                const pollCreation = await store.loadMessage(key.remoteJid, key.id);
-                console.log("POLL CREATION MESSAGE FOUND:", !!pollCreation);
-                if (pollCreation) {
-                    const { getAggregateVotesInPollMessage } = require('@whiskeysockets/baileys');
-                    const pollVotes = getAggregateVotesInPollMessage({
-                        message: pollCreation.message,
-                        pollUpdates: update.pollUpdates,
-                    });
-                    
-                    console.log("AGGREGATED VOTES:", JSON.stringify(pollVotes, null, 2));
-                    const selectedOption = pollVotes.find(v => v.voters.length > 0);
-                    if (selectedOption) {
-                        const command = selectedOption.name;
-                        console.log("COMMAND SELECTED:", command);
-                        const fakeMsg = {
-                            key: { remoteJid: key.remoteJid, fromMe: false, id: key.id },
-                            message: { conversation: command },
-                            messageTimestamp: Math.floor(Date.now() / 1000),
-                            pushName: 'User'
-                        };
-                        
-                        try {
-                            await handleMessage(client, fakeMsg);
-                        } catch (err) {
-                            console.error("Error processing poll vote:", err);
-                        }
-                    }
-                }
-            }
         }
     });
 
