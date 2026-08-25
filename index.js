@@ -73,9 +73,12 @@ async function startBot() {
     });
 
     client.ev.on('messages.update', async (updates) => {
+        console.log("MESSAGES UPDATE EVENT:", JSON.stringify(updates, null, 2));
         for (const { key, update } of updates) {
             if (update.pollUpdates) {
+                console.log("POLL UPDATE RECEIVED:", JSON.stringify(update.pollUpdates, null, 2));
                 const pollCreation = await store.loadMessage(key.remoteJid, key.id);
+                console.log("POLL CREATION MESSAGE FOUND:", !!pollCreation);
                 if (pollCreation) {
                     const { getAggregateVotesInPollMessage } = require('@whiskeysockets/baileys');
                     const pollVotes = getAggregateVotesInPollMessage({
@@ -83,10 +86,11 @@ async function startBot() {
                         pollUpdates: update.pollUpdates,
                     });
                     
+                    console.log("AGGREGATED VOTES:", JSON.stringify(pollVotes, null, 2));
                     const selectedOption = pollVotes.find(v => v.voters.length > 0);
                     if (selectedOption) {
                         const command = selectedOption.name;
-                        
+                        console.log("COMMAND SELECTED:", command);
                         const fakeMsg = {
                             key: { remoteJid: key.remoteJid, fromMe: false, id: key.id },
                             message: { conversation: command },
