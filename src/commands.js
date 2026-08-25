@@ -455,10 +455,13 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     fs.writeFileSync(filePath, pesan);
 
     try {
-      const media = { document: require("fs").readFileSync(filePath), mimetype: "text/plain", fileName: fileName };
-      await client.sendMessage(msg.from, media, {
-        caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${data.minggu_ke}*.`,
-      });
+      const media = { 
+        document: require("fs").readFileSync(filePath), 
+        mimetype: "text/plain", 
+        fileName: fileName,
+        caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${data.minggu_ke}*.`
+      };
+      await client.sendMessage(msg.from, media);
     } catch (err) {
       console.error("Gagal mengirim file:", err);
       msg.reply("Maaf, terjadi kesalahan saat mengirim file rekap absensi.");
@@ -654,11 +657,12 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       const targetGroup = "120363424800769453@g.us";
 
       if (fs.existsSync(portalPath)) {
-        const media = { image: require("fs").readFileSync(portalPath) };
         const akun = getLastUsedAccount() || "Belum diketahui";
-        client.sendMessage(targetGroup, media, {
-          caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*`,
-        });
+        const media = { 
+          image: require("fs").readFileSync(portalPath),
+          caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*`
+        };
+        client.sendMessage(targetGroup, media);
         if (msg.from !== targetGroup) {
           msg.reply("✅ Screenshot portal telah dikirim ke grup testing.");
         }
@@ -939,7 +943,11 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         slow: false,
         host: "https://translate.google.com",
       });
-      const media = { audio: Buffer.from(base64, "base64"), ptt: true };
+      const media = { 
+        audio: Buffer.from(base64, "base64"), 
+        mimetype: "audio/mpeg", 
+        ptt: true 
+      };
       await client.sendMessage(msg.from, media);
     } catch (err) {
       console.error(err);
@@ -1370,7 +1378,15 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
 
     if (media) {
       try {
-        await client.sendMessage(msg.from, { sticker: Buffer.from(media.data, 'base64') });
+        const { Sticker, StickerTypes } = require('wa-sticker-formatter');
+        const sticker = new Sticker(Buffer.from(media.data, 'base64'), {
+            pack: 'SmartBot',
+            author: 'Owner',
+            type: StickerTypes.FULL,
+            quality: 50
+        });
+        const webpBuffer = await sticker.toBuffer();
+        await client.sendMessage(msg.from, { sticker: webpBuffer });
       } catch (err) {
         console.error("Gagal mengirim stiker:", err);
         msg.reply("Maaf, terjadi kesalahan saat membuat stiker.");
