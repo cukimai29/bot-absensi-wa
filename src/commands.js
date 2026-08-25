@@ -921,8 +921,9 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         return;
       }
 
-      let participants = chat.participants.map((p) => p.id._serialized);
-      await chat.sendMessage(`🔊 *PENGUMUMAN*\n\n${pesanTeks}`, {
+      let participants = chat.participants.map((p) => p.id);
+      await client.sendMessage(msg.from, {
+        text: `🔊 *PENGUMUMAN*\n\n${pesanTeks}`,
         mentions: participants,
       });
     }
