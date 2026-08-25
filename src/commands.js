@@ -260,9 +260,50 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    msg.reply(
-      "Hadirr, siap membantu!\n\n👇 *SILAKAN KETIK TEKS DI BAWAH INI* 👇\n\n👉 *.menu* 👈\n\n_(Catatan: Fitur tombol interaktif resmi diblokir oleh pihak WhatsApp/Meta untuk keamanan, jadi harus diketik manual ya!)_",
-    );
+    const menuPesan = `Hadirr, siap membantu!\n\nSilakan pilih menu dari tombol di bawah ini!`;
+    const sections = [
+        {
+            title: "Fitur Umum",
+            rows: [
+                { title: "📚 Tugas", id: ".tugas" },
+                { title: "📅 Jadwal", id: ".jadwal" },
+                { title: "🎮 Mini Games", id: ".susunkata" },
+                { title: "🌤 Cuaca", id: ".cuaca" }
+            ]
+        },
+        {
+            title: "Fitur Sistem",
+            rows: [
+                { title: "📋 Rekap Absen", id: ".allabsensi" },
+                { title: "🤖 Status Bot", id: ".runtime" },
+                { title: "👑 Owner", id: ".owner" }
+            ]
+        }
+    ];
+
+    const menuMessage = {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                interactiveMessage: {
+                    body: { text: menuPesan },
+                    nativeFlowMessage: {
+                        buttons: [{
+                            name: "single_select",
+                            buttonParamsJson: JSON.stringify({
+                                title: "PILIH MENU",
+                                sections: sections
+                            })
+                        }]
+                    }
+                }
+            }
+        }
+    };
+
+    const { generateWAMessageFromContent } = require("@whiskeysockets/baileys");
+    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: msg.from });
+    await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
   }
   if (msg.body.toLowerCase() === ".testkas") {
     msg.reply(
