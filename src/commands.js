@@ -943,12 +943,39 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         slow: false,
         host: "https://translate.google.com",
       });
-      const media = { 
-        audio: Buffer.from(base64, "base64"), 
-        mimetype: "audio/mpeg", 
-        ptt: true 
-      };
-      await client.sendMessage(msg.from, media);
+      
+      const fs = require('fs');
+      const { execSync } = require('child_process');
+      const path = require('path');
+      
+      const userId = (msg.author || msg.from).replace(/[^0-9]/g, '');
+      const tempMp3 = path.join(__dirname, '..', `temp_${userId}.mp3`);
+      const tempOgg = path.join(__dirname, '..', `temp_${userId}.ogg`);
+      
+      fs.writeFileSync(tempMp3, Buffer.from(base64, "base64"));
+      
+      try {
+        execSync(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 32k -vbr on "${tempOgg}" -y`, { stdio: 'ignore' });
+        const oggBuffer = fs.readFileSync(tempOgg);
+        
+        const media = { 
+          audio: oggBuffer, 
+          mimetype: "audio/ogg; codecs=opus", 
+          ptt: true 
+        };
+        await client.sendMessage(msg.from, media);
+      } catch (e) {
+         console.error("FFMPEG conversion failed, falling back to MP3:", e);
+         const media = { 
+            audio: Buffer.from(base64, "base64"), 
+            mimetype: "audio/mp4", 
+            ptt: false 
+         };
+         await client.sendMessage(msg.from, media);
+      } finally {
+         if (fs.existsSync(tempMp3)) fs.unlinkSync(tempMp3);
+         if (fs.existsSync(tempOgg)) fs.unlinkSync(tempOgg);
+      }
     } catch (err) {
       console.error(err);
       msg.reply("Terjadi kesalahan saat membuat voice note.");
