@@ -950,16 +950,18 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       
       const userId = (msg.author || msg.from).replace(/[^0-9]/g, '');
       const tempMp3 = path.join(__dirname, '..', `temp_${userId}.mp3`);
-      const tempOgg = path.join(__dirname, '..', `temp_${userId}.ogg`);
+      const tempMp4 = path.join(__dirname, '..', `temp_${userId}.m4a`);
       
       fs.writeFileSync(tempMp3, Buffer.from(base64, "base64"));
       
       try {
-        execSync(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 32k -vbr on -compression_level 10 -frame_duration 20 -application voip "${tempOgg}" -y`, { stdio: 'ignore' });
-        const oggBuffer = fs.readFileSync(tempOgg);
+        // iOS fully supports MP4 (AAC) for Voice Notes (PTT). 
+        // This avoids the strict OGG/Opus header rejections on iPhone.
+        execSync(`ffmpeg -i "${tempMp3}" -c:a aac -b:a 64k -vn "${tempMp4}" -y`, { stdio: 'ignore' });
+        const mp4Buffer = fs.readFileSync(tempMp4);
         
         const media = { 
-          audio: oggBuffer, 
+          audio: mp4Buffer, 
           mimetype: "audio/mp4", 
           ptt: true 
         };
@@ -974,7 +976,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
          await client.sendMessage(msg.from, media);
       } finally {
          if (fs.existsSync(tempMp3)) fs.unlinkSync(tempMp3);
-         if (fs.existsSync(tempOgg)) fs.unlinkSync(tempOgg);
+         if (fs.existsSync(tempMp4)) fs.unlinkSync(tempMp4);
       }
     } catch (err) {
       console.error(err);
