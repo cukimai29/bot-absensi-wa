@@ -49,12 +49,13 @@ async function startBot() {
     });
 
     client.ev.on('messages.upsert', async (m) => {
-        console.log("MESSAGES UPSERT EVENT:", JSON.stringify(m, null, 2));
-        if (m.type !== 'notify') return;
         const msg = m.messages[0];
         if (!msg.message) return;
+        if (msg.key.fromMe) return; // Ignore bot's own messages
         
-        console.log("Processing message from:", msg.key.remoteJid, "Body:", msg.message?.conversation || msg.message?.extendedTextMessage?.text);
+        // Cek pesan agar tidak memproses pesan basi (di atas 2 menit)
+        const now = Math.floor(Date.now() / 1000);
+        if (now - msg.messageTimestamp > 120) return;
         
         // Handle message
         await handleMessage(client, msg);
