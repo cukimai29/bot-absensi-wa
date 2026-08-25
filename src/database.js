@@ -28,7 +28,7 @@ function catatAbsen(matkul, tanggal) {
         data.jadwal[mingguIni] = [];
     }
 
-    let sudahAda = data.jadwal[mingguIni].find(a => a.matkul === matkul && a.tanggal === tanggal);
+    let sudahAda = data.jadwal[mingguIni].find(a => a.matkul === matkul);
     if (!sudahAda) {
         data.jadwal[mingguIni].push({ matkul, tanggal });
         saveData(data);
