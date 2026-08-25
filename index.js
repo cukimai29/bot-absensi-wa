@@ -21,7 +21,14 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         printQRInTerminal: true,
         auth: state,
-        generateHighQualityLinkPreview: true
+        generateHighQualityLinkPreview: true,
+        getMessage: async (key) => {
+            if (store) {
+                const msg = await store.loadMessage(key.remoteJid, key.id)
+                return msg?.message || undefined
+            }
+            return { conversation: 'hello' }
+        }
     });
     
     store.bind(client.ev);
@@ -62,6 +69,39 @@ async function startBot() {
             await handleMessage(client, msg);
         } catch (err) {
             console.error("Error processing message:", err);
+        }
+    });
+
+    client.ev.on('messages.update', async (updates) => {
+        for (const { key, update } of updates) {
+            if (update.pollUpdates) {
+                const pollCreation = await store.loadMessage(key.remoteJid, key.id);
+                if (pollCreation) {
+                    const { getAggregateVotesInPollMessage } = require('@whiskeysockets/baileys');
+                    const pollVotes = getAggregateVotesInPollMessage({
+                        message: pollCreation.message,
+                        pollUpdates: update.pollUpdates,
+                    });
+                    
+                    const selectedOption = pollVotes.find(v => v.voters.length > 0);
+                    if (selectedOption) {
+                        const command = selectedOption.name;
+                        
+                        const fakeMsg = {
+                            key: { remoteJid: key.remoteJid, fromMe: false, id: key.id },
+                            message: { conversation: command },
+                            messageTimestamp: Math.floor(Date.now() / 1000),
+                            pushName: 'User'
+                        };
+                        
+                        try {
+                            await handleMessage(client, fakeMsg);
+                        } catch (err) {
+                            console.error("Error processing poll vote:", err);
+                        }
+                    }
+                }
+            }
         }
     });
 

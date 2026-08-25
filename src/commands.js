@@ -260,22 +260,24 @@ async function handleMessage(client, rawMsg) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    const menuPesan = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖
+    const pollName = `🤖 *SMARTBOT ABSENSI - HADIR!* 🤖\n\nSilakan pilih menu dari daftar di bawah ini:`;
+    const pollOptions = [
+      ".tugas",
+      ".jadwal",
+      ".susunkata",
+      ".cuaca",
+      ".allabsensi",
+      ".runtime",
+      ".owner"
+    ];
 
-Silakan pilih menu dengan mengetik perintah berikut:
-
-*Fitur Umum:*
-📚 *.tugas* - Daftar tugas
-📅 *.jadwal* - Jadwal kuliah
-🎮 *.susunkata* - Mini games
-🌤 *.cuaca* - Info cuaca
-
-*Fitur Sistem:*
-📋 *.allabsensi* - Rekap absen
-🤖 *.runtime* - Status bot
-👑 *.owner* - Info owner`;
-
-    await msg.reply(menuPesan);
+    await client.sendMessage(msg.from, {
+      poll: {
+        name: pollName,
+        values: pollOptions,
+        selectableCount: 1
+      }
+    });
   }
   if (msg.body.toLowerCase() === ".testkas") {
     msg.reply(
@@ -304,22 +306,24 @@ Silakan pilih menu dengan mengetik perintah berikut:
   }
 
   if (msg.body.toLowerCase() === ".menu" || msg.body.toLowerCase() === ".help") {
-    const menuPesan = `🤖 *SMARTBOT ABSENSI* 🤖
+    const pollName = `🤖 *SMARTBOT ABSENSI* 🤖\n\nSilakan pilih menu dari daftar di bawah ini:`;
+    const pollOptions = [
+      ".tugas",
+      ".jadwal",
+      ".susunkata",
+      ".cuaca",
+      ".allabsensi",
+      ".runtime",
+      ".owner"
+    ];
 
-Silakan pilih menu dengan mengetik perintah berikut:
-
-*Fitur Umum:*
-📚 *.tugas* - Daftar tugas
-📅 *.jadwal* - Jadwal kuliah
-🎮 *.susunkata* - Mini games
-🌤 *.cuaca* - Info cuaca
-
-*Fitur Sistem:*
-📋 *.allabsensi* - Rekap absen
-🤖 *.runtime* - Status bot
-👑 *.owner* - Info owner`;
-
-    await msg.reply(menuPesan);
+    await client.sendMessage(msg.from, {
+      poll: {
+        name: pollName,
+        values: pollOptions,
+        selectableCount: 1
+      }
+    });
   }
 
   if (msg.body.toLowerCase().startsWith(".tanya")) {
