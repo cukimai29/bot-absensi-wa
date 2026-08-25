@@ -209,14 +209,15 @@ async function handleMessage(client, msg) {
             `24. *.runtime* : Melihat uptime bot.\n` +
             `25. *.owner* : Menampilkan info owner bot.\n\n` +
             `*👑 KHUSUS ADMIN GRUP*\n` +
-            `25. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
-            `26. *.hapus_tugas <Nomor>*\n` +
-            `27. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
-            `28. *.hapusjadwal <Hari> | <Matkul>*\n` +
-            `29. *.hidetag <Pesan>*\n` +
-            `30. *.setminggu <Angka>*\n\n` +
+            `26. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
+            `27. *.hapus_tugas <Nomor>*\n` +
+            `28. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
+            `29. *.hapusjadwal <Hari> | <Matkul>*\n` +
+            `30. *.hidetag <Pesan>*\n` +
+            `31. *.setminggu <Angka>*\n` +
+            `32. *.hapusrekap <Tanggal>*\n\n` +
             `*👑 KHUSUS OWNER*\n` +
-            `31. *.resetbot <Semester>*\n\n` +
+            `33. *.resetbot <Semester>*\n\n` +
             `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
         msg.reply(menuPesan);
     }
@@ -423,7 +424,7 @@ async function handleMessage(client, msg) {
     const senderId = msg.author || msg.from || '';
     const isOwner = senderId.includes('85704682918') || senderId.includes('194720949112994') || senderId.includes('85233724944') || senderId.includes('70523564343409');
 
-    const adminCommands = ['.setminggu', '.testabsen', '.jadwaledit', '.hapusjadwal', '.tambah_tugas', '.hapus_tugas', '.hidetag'];
+    const adminCommands = ['.setminggu', '.testabsen', '.jadwaledit', '.hapusjadwal', '.tambah_tugas', '.hapus_tugas', '.hidetag', '.hapusrekap'];
     const isCmdAdmin = adminCommands.some(cmd => msg.body.toLowerCase().startsWith(cmd));
     const isCmdOwner = msg.body.toLowerCase().startsWith('.resetbot') || msg.body.toLowerCase() === '.cekportal' || msg.body.toLowerCase() === '.testnotif';
 
@@ -487,6 +488,34 @@ async function handleMessage(client, msg) {
                 msg.reply(`Minggu semester berhasil diubah menjadi minggu ke-${mingguBaru}.`);
             } else {
                 msg.reply('Format salah. Contoh penggunaan: .setminggu 2 (Maksimal 16)');
+            }
+        }
+
+        if (msg.body.toLowerCase().startsWith('.hapusrekap')) {
+            const tanggalHapus = msg.body.substring('.hapusrekap'.length).trim();
+            if (!tanggalHapus) {
+                msg.reply('Format salah! Contoh penggunaan: *.hapusrekap 25/8/2026*');
+                return;
+            }
+
+            let data = loadData();
+            let mingguIni = `minggu_${data.minggu_ke}`;
+            
+            if (!data.jadwal[mingguIni] || data.jadwal[mingguIni].length === 0) {
+                msg.reply(`Belum ada data rekapan absen di minggu ke-${data.minggu_ke}.`);
+                return;
+            }
+
+            const jumlahAwal = data.jadwal[mingguIni].length;
+            data.jadwal[mingguIni] = data.jadwal[mingguIni].filter(a => a.tanggal !== tanggalHapus);
+            const jumlahAkhir = data.jadwal[mingguIni].length;
+            const terhapus = jumlahAwal - jumlahAkhir;
+
+            if (terhapus > 0) {
+                saveData(data);
+                msg.reply(`✅ Berhasil menghapus *${terhapus}* rekapan absensi yang tercatat pada tanggal *${tanggalHapus}*.`);
+            } else {
+                msg.reply(`❌ Tidak ditemukan rekapan absensi pada tanggal *${tanggalHapus}*. Pastikan format tanggal sama persis seperti di .allabsensi`);
             }
         }
 
