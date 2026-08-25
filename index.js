@@ -61,6 +61,59 @@ async function startBot() {
         
         if (msg.message.pollUpdateMessage) {
             console.log("RAW POLL UPDATE UPSERT:", JSON.stringify(msg, null, 2));
+            const pollKey = msg.message.pollUpdateMessage.pollCreationMessageKey;
+            const pollMsg = await store.loadMessage(pollKey.remoteJid, pollKey.id);
+            console.log("POLL MSG FOUND IN STORE:", !!pollMsg);
+            
+            if (pollMsg) {
+                const { getAggregateVotesInPollMessage, decryptPollVote } = require('@whiskeysockets/baileys');
+                try {
+                    const meId = client.user.id.split(':')[0] + '@s.whatsapp.net';
+                    const pollCreatorJid = pollKey.participant || pollKey.remoteJid;
+                    const voterJid = msg.key.participant || msg.key.remoteJid;
+                    
+                    const decryptedVote = decryptPollVote(
+                        msg.message.pollUpdateMessage.vote,
+                        {
+                            pollCreatorJid,
+                            pollMsgId: pollKey.id,
+                            pollEncKey: pollMsg.message.messageContextInfo.messageSecret,
+                            voterJid
+                        }
+                    );
+                    
+                    const formattedUpdate = {
+                        pollUpdateMessageKey: msg.key,
+                        vote: decryptedVote,
+                        senderTimestampMs: msg.messageTimestamp
+                    };
+                    
+                    const pollVotes = getAggregateVotesInPollMessage({
+                        message: pollMsg.message,
+                        pollUpdates: [formattedUpdate]
+                    });
+                    console.log("MANUAL DECRYPTION VOTES:", JSON.stringify(pollVotes, null, 2));
+                    
+                    const selectedOption = pollVotes.find(v => v.voters.length > 0);
+                    if (selectedOption) {
+                        const command = selectedOption.name;
+                        console.log("COMMAND SELECTED FROM MANUAL:", command);
+                        const fakeMsg = {
+                            key: { remoteJid: msg.key.remoteJid, fromMe: false, id: msg.key.id },
+                            message: { conversation: command },
+                            messageTimestamp: Math.floor(Date.now() / 1000),
+                            pushName: msg.pushName || 'User'
+                        };
+                        try {
+                            await handleMessage(client, fakeMsg);
+                        } catch (err) {
+                            console.error("Error processing manual poll vote:", err);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Manual decryption failed:", e);
+                }
+            }
         }
 
         if (msg.key.fromMe) return; // Ignore bot's own messages
