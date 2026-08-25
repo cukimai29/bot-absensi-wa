@@ -302,7 +302,7 @@ async function handleMessage(client, rawMsg) {
     };
 
     const { generateWAMessageFromContent } = require("@whiskeysockets/baileys");
-    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: msg.from });
+    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: client.user.id });
     await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
   }
   if (msg.body.toLowerCase() === ".testkas") {
@@ -375,7 +375,7 @@ Silakan pilih menu dari tombol di bawah ini!`;
         }
     };
 
-    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: msg.from });
+    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: client.user.id });
     await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
 
   }

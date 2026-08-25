@@ -58,7 +58,11 @@ async function startBot() {
         if (now - msg.messageTimestamp > 120) return;
         
         // Handle message
-        await handleMessage(client, msg);
+        try {
+            await handleMessage(client, msg);
+        } catch (err) {
+            console.error("Error processing message:", err);
+        }
     });
 
     return client;
