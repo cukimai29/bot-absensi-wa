@@ -166,10 +166,22 @@ async function handleMessage(client, rawMsg) {
     hasQuotedMsg: !!(rawMsg.message?.extendedTextMessage?.contextInfo?.quotedMessage),
 
     reply: async (content) => {
+      // Fake Quoted Message untuk memunculkan lencana Verifikasi (Centang Hijau WhatsApp)
+      const fakeVerif = {
+        key: {
+          fromMe: false,
+          participant: '0@s.whatsapp.net', // Official WhatsApp Account
+          ...(rawMsg.key.remoteJid ? { remoteJid: rawMsg.key.remoteJid } : {})
+        },
+        message: {
+          conversation: "🤖 SMARTBOT ABSENSI 🤖"
+        }
+      };
+
       if (typeof content === 'string') {
-        return await client.sendMessage(_chatId, { text: content }, { quoted: rawMsg });
+        return await client.sendMessage(_chatId, { text: content }, { quoted: fakeVerif });
       } else {
-        return await client.sendMessage(_chatId, content, { quoted: rawMsg });
+        return await client.sendMessage(_chatId, content, { quoted: fakeVerif });
       }
     },
 
