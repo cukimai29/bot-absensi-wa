@@ -58,6 +58,11 @@ async function startBot() {
     client.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         if (!msg.message) return;
+        
+        if (msg.message.pollUpdateMessage) {
+            console.log("RAW POLL UPDATE UPSERT:", JSON.stringify(msg, null, 2));
+        }
+
         if (msg.key.fromMe) return; // Ignore bot's own messages
         
         // Cek pesan agar tidak memproses pesan basi (di atas 2 menit)
