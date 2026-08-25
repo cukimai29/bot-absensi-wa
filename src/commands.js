@@ -7,7 +7,7 @@ const {
 const { GoogleGenAI } = require("@google/genai");
 const googleTTS = require("google-tts-api");
 const { MessageMedia, Poll, Buttons } = require("whatsapp-web.js");
-const { checkKasAndSend } = require("./src/kas-tricendes/kas-checker");
+const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
 
 async function createMeme(base64Image, mimetype, topText, bottomText) {
   const puppeteer = require("puppeteer");
