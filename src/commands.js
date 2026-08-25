@@ -205,10 +205,11 @@ async function handleMessage(client, rawMsg) {
     hasQuotedMsg: !!(rawMsg.message?.extendedTextMessage?.contextInfo?.quotedMessage),
 
     reply: async (content) => {
+      const options = _isGroup ? { quoted: fakeVerif } : {};
       if (typeof content === 'string') {
-        return await client.sendMessage(_chatId, { text: content }, { quoted: fakeVerif });
+        return await client.sendMessage(_chatId, { text: content }, options);
       } else {
-        return await client.sendMessage(_chatId, content, { quoted: fakeVerif });
+        return await client.sendMessage(_chatId, content, options);
       }
     },
 
@@ -513,7 +514,8 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         fileName: fileName,
         caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${data.minggu_ke}*.`
       };
-      await client.sendMessage(msg.from, media, { quoted: fakeVerif });
+      const options = _isGroup ? { quoted: fakeVerif } : {};
+      await client.sendMessage(msg.from, media, options);
     } catch (err) {
       console.error("Gagal mengirim file:", err);
       msg.reply("Maaf, terjadi kesalahan saat mengirim file rekap absensi.");
@@ -714,7 +716,8 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
           image: require("fs").readFileSync(portalPath),
           caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*`
         };
-        client.sendMessage(targetGroup, media, { quoted: fakeVerif });
+        const options = targetGroup.endsWith('@g.us') ? { quoted: fakeVerif } : {};
+        client.sendMessage(targetGroup, media, options);
         if (msg.from !== targetGroup) {
           msg.reply("✅ Screenshot portal telah dikirim ke grup testing.");
         }
@@ -1026,7 +1029,8 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
           mimetype: "audio/mp4", 
           ptt: true 
         };
-        await client.sendMessage(msg.from, media, { quoted: fakeVerif });
+        const options = _isGroup ? { quoted: fakeVerif } : {};
+        await client.sendMessage(msg.from, media, options);
         await msg.react('✅');
       } catch (e) {
          console.error("FFMPEG conversion failed, falling back to MP3:", e);
@@ -1035,7 +1039,8 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
             mimetype: "audio/mp4", 
             ptt: false 
          };
-         await client.sendMessage(msg.from, media, { quoted: fakeVerif });
+         const options = _isGroup ? { quoted: fakeVerif } : {};
+         await client.sendMessage(msg.from, media, options);
          await msg.react('✅');
       } finally {
          if (fs.existsSync(tempMp3)) fs.unlinkSync(tempMp3);
@@ -1480,7 +1485,8 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
             quality: 50
         });
         const webpBuffer = await sticker.toBuffer();
-        await client.sendMessage(msg.from, { sticker: webpBuffer }, { quoted: fakeVerif });
+        const options = _isGroup ? { quoted: fakeVerif } : {};
+        await client.sendMessage(msg.from, { sticker: webpBuffer }, options);
       } catch (err) {
         console.error("Gagal mengirim stiker:", err);
         msg.reply("Maaf, terjadi kesalahan saat membuat stiker.");
