@@ -175,7 +175,7 @@ async function handleMessage(client, rawMsg) {
           ...(rawMsg.key.remoteJid ? { remoteJid: rawMsg.key.remoteJid } : {})
         },
         message: {
-          conversation: "🤖 SMARTBOT ABSENSI 🤖"
+          conversation: "SMARTBOT by RzkyAds"
         }
       };
 
