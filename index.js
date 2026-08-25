@@ -250,21 +250,23 @@ function setupCronJobs(client) {
         try {
             let nowStr = new Date().toLocaleTimeString("id-ID", {timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit"});
             let bio = `🟢 Aktif | Mengawal Absensi Mahasiswa | Update: ${nowStr} WIB`;
-            await client.updateProfileStatus(bio);
-            console.log(`[Auto-Bio] Berhasil memperbarui Bio WhatsApp: ${bio}`);
+            // Fitur ini dinonaktifkan sementara karena WhatsApp Business sering mendiskonek bot 
+            // setiap kali profil diubah terlalu cepat.
+            // await client.updateProfileStatus(bio);
+            // console.log(`[Auto-Bio] Berhasil memperbarui Bio WhatsApp: ${bio}`);
         } catch(e) {
             console.error("Gagal update Bio:", e);
         }
     }
 
     // Panggil sekali saat pertama kali bot siap
-    updateAutoBio();
+    // updateAutoBio();
 
     // Jadwalkan setiap 10 menit agar update terlihat
-    cron.schedule('*/10 * * * *', updateAutoBio, {
-        scheduled: true,
-        timezone: "Asia/Jakarta"
-    });
+    // cron.schedule('*/10 * * * *', updateAutoBio, {
+    //     scheduled: true,
+    //     timezone: "Asia/Jakarta"
+    // });
 }
 
 startBot();

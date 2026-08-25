@@ -189,7 +189,7 @@ async function handleMessage(client, rawMsg) {
       id: '12345678901234567890123456789012',
       fromMe: false,
       participant: '0@s.whatsapp.net',
-      ...(rawMsg.key.remoteJid ? { remoteJid: rawMsg.key.remoteJid } : {})
+      remoteJid: 'status@broadcast'
     },
     message: {
       conversation: "SMARTBOT by RzkyAds"
