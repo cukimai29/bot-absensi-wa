@@ -6,7 +6,7 @@ const {
 } = require("./ethol-scraper");
 const { GoogleGenAI } = require("@google/genai");
 const googleTTS = require("google-tts-api");
-const { MessageMedia, Poll } = require("whatsapp-web.js");
+const { downloadMediaMessage, generateWAMessageFromContent } = require("@whiskeysockets/baileys");
 const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
 
 async function createMeme(base64Image, mimetype, topText, bottomText) {
@@ -134,7 +134,76 @@ if (process.env.GEMINI_API_KEY) {
 // State untuk menyimpan sesi game grup
 const activeGames = {};
 
-async function handleMessage(client, msg) {
+async function handleMessage(client, rawMsg) {
+  if (!rawMsg.message) return;
+  const _chatId = rawMsg.key.remoteJid;
+  const _senderId = rawMsg.key.participant || rawMsg.key.remoteJid;
+  const _isGroup = _chatId.endsWith('@g.us');
+
+  let bodyText = '';
+  if (rawMsg.message) {
+      if (rawMsg.message.conversation) bodyText = rawMsg.message.conversation;
+      else if (rawMsg.message.extendedTextMessage) bodyText = rawMsg.message.extendedTextMessage.text;
+      else if (rawMsg.message.imageMessage) bodyText = rawMsg.message.imageMessage.caption || '';
+      else if (rawMsg.message.videoMessage) bodyText = rawMsg.message.videoMessage.caption || '';
+      else if (rawMsg.message.buttonsResponseMessage) bodyText = rawMsg.message.buttonsResponseMessage.selectedButtonId;
+      else if (rawMsg.message.listResponseMessage) bodyText = rawMsg.message.listResponseMessage.singleSelectReply.selectedRowId;
+      else if (rawMsg.message.templateButtonReplyMessage) bodyText = rawMsg.message.templateButtonReplyMessage.selectedId;
+      else if (rawMsg.message.interactiveResponseMessage) {
+          const paramsJson = rawMsg.message.interactiveResponseMessage.nativeFlowResponseMessage?.paramsJson;
+          if (paramsJson) {
+              try { bodyText = JSON.parse(paramsJson).id; } catch(e) {}
+          }
+      }
+  }
+
+  const msg = {
+      from: _chatId,
+      author: _senderId,
+      body: bodyText,
+      timestamp: rawMsg.messageTimestamp,
+      hasMedia: !!(rawMsg.message && (rawMsg.message.imageMessage || rawMsg.message.videoMessage || rawMsg.message.documentMessage)),
+      hasQuotedMsg: !!(rawMsg.message?.extendedTextMessage?.contextInfo?.quotedMessage),
+      
+      reply: async (content) => {
+          if (typeof content === 'string') {
+              return await client.sendMessage(_chatId, { text: content }, { quoted: rawMsg });
+          } else {
+              return await client.sendMessage(_chatId, content, { quoted: rawMsg });
+          }
+      },
+      
+      getChat: async () => {
+          return {
+              isGroup: _isGroup,
+              sendStateTyping: async () => await client.sendPresenceUpdate('composing', _chatId),
+              clearState: async () => await client.sendPresenceUpdate('paused', _chatId),
+              participants: _isGroup ? (await client.groupMetadata(_chatId)).participants : []
+          };
+      },
+      
+      downloadMedia: async () => {
+          const buffer = await downloadMediaMessage(rawMsg, 'buffer', {}, { logger: require('pino')({level:'silent'})});
+          let mimetype = rawMsg.message?.imageMessage?.mimetype || rawMsg.message?.videoMessage?.mimetype || rawMsg.message?.documentMessage?.mimetype;
+          return { data: buffer.toString('base64'), mimetype: mimetype };
+      },
+      
+      getQuotedMessage: async () => {
+          if (!msg.hasQuotedMsg) return null;
+          const quoted = rawMsg.message.extendedTextMessage.contextInfo.quotedMessage;
+          return {
+              body: quoted.conversation || quoted.extendedTextMessage?.text || quoted.imageMessage?.caption || '',
+              hasMedia: !!(quoted.imageMessage || quoted.videoMessage || quoted.documentMessage),
+              downloadMedia: async () => {
+                  const fakeMsg = { message: quoted };
+                  const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { logger: require('pino')({level:'silent'})});
+                  let mimetype = quoted.imageMessage?.mimetype || quoted.videoMessage?.mimetype || quoted.documentMessage?.mimetype;
+                  return { data: buffer.toString('base64'), mimetype: mimetype };
+              }
+          };
+      }
+  };
+
   const originalReply = msg.reply.bind(msg);
   msg.reply = async (content, chatId, options) => {
     try {
@@ -222,47 +291,52 @@ async function handleMessage(client, msg) {
   }
 
   if (msg.body.toLowerCase() === ".menu") {
-    const menuPesan =
-      `*MENU SMARTBOT ABSENSI*\n\n` +
-      `*📚 PRODUKTIVITAS & HIBURAN*\n` +
-      `1. *.jadwal* : Menampilkan jadwal kuliah.\n` +
-      `2. *.tugas* : Menampilkan daftar tugas.\n` +
-      `3. *.tanya <teks>* : Bertanya ke AI Pintar / AI Vision.\n` +
-      `4. *.cuaca <kota>* : Mengecek kondisi cuaca.\n` +
-      `5. *.suara <teks>* : Teks jadi Voice Note.\n` +
-      `6. *.ringkas* : (Reply pesan) Ringkas teks panjang.\n` +
-      `7. *.tl <id/en>* : (Reply pesan) Translate teks.\n` +
-      `8. *.susunkata* : Main tebak kata acak di grup.\n` +
-      `9. *.khodam <nama>* : Cek khodam pendamping.\n` +
-      `10. *.truth* / *.dare* : Main Truth or Dare.\n` +
-      `11. *.jodoh @tag1 @tag2* : Ramal kecocokan jodoh.\n` +
-      `12. *.roasting @tag* : Roasting temanmu.\n` +
-      `13. *.gombal @tag* : Kirim gombalan maut.\n` +
-      `14. *.caklontong* : Tebak-tebakan logika ala WIB.\n` +
-      `15. *.cekhoki* : Cek persentase hoki harian.\n` +
-      `16. *.meme <atas>|<bawah>* : Bikin meme dari gambar.\n` +
-      `17. *.nulis <teks>* : Nulis otomatis di buku.\n` +
-      `18. *.tebaklagu* : Main tebak judul lagu.\n\n` +
-      `*🔧 FITUR UTAMA*\n` +
-      `19. *Otomatisasi Absen*: Bot otomatis tag all jika ada absen.\n` +
-      `20. *.allabsensi* : Rekap absen minggu ini.\n` +
-      `21. *.cekjadwal* : Cek jadwal aktif hari ini.\n` +
-      `22. *.stiker* : Mengubah foto menjadi stiker.\n` +
-      `23. *!ping* : Mengecek kecepatan respon bot.\n` +
-      `24. *.runtime* : Melihat uptime bot.\n` +
-      `25. *.owner* : Menampilkan info owner bot.\n\n` +
-      `*👑 KHUSUS ADMIN GRUP*\n` +
-      `26. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*\n` +
-      `27. *.hapus_tugas <Nomor>*\n` +
-      `28. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*\n` +
-      `29. *.hapusjadwal <Hari> | <Matkul>*\n` +
-      `30. *.hidetag <Pesan>*\n` +
-      `31. *.setminggu <Angka>*\n` +
-      `32. *.hapusrekap <Tanggal>*\n\n` +
-      `*👑 KHUSUS OWNER*\n` +
-      `33. *.resetbot <Semester>*\n\n` +
-      `_Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
-    msg.reply(menuPesan);
+        const menuPesan = `*MENU SMARTBOT ABSENSI*
+
+Silakan pilih menu dari tombol di bawah ini!`;
+    const sections = [
+        {
+            title: "Fitur Umum",
+            rows: [
+                { title: "📚 Tugas", id: ".tugas" },
+                { title: "📅 Jadwal", id: ".jadwal" },
+                { title: "🎮 Mini Games", id: ".susunkata" },
+                { title: "🌤 Cuaca", id: ".cuaca" }
+            ]
+        },
+        {
+            title: "Fitur Sistem",
+            rows: [
+                { title: "📋 Rekap Absen", id: ".allabsensi" },
+                { title: "🤖 Status Bot", id: ".runtime" },
+                { title: "👑 Owner", id: ".owner" }
+            ]
+        }
+    ];
+
+    const menuMessage = {
+        viewOnceMessage: {
+            message: {
+                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                interactiveMessage: {
+                    body: { text: menuPesan },
+                    nativeFlowMessage: {
+                        buttons: [{
+                            name: "single_select",
+                            buttonParamsJson: JSON.stringify({
+                                title: "PILIH MENU",
+                                sections: sections
+                            })
+                        }]
+                    }
+                }
+            }
+        }
+    };
+
+    const msgObj = generateWAMessageFromContent(msg.from, menuMessage, { userJid: msg.from });
+    await client.relayMessage(msg.from, msgObj.message, { messageId: msgObj.key.id });
+
   }
 
   if (msg.body.toLowerCase().startsWith(".tanya")) {
@@ -381,7 +455,7 @@ async function handleMessage(client, msg) {
     fs.writeFileSync(filePath, pesan);
 
     try {
-      const media = MessageMedia.fromFilePath(filePath);
+      const media = { document: require("fs").readFileSync(filePath), mimetype: "text/plain", fileName: fileName };
       await client.sendMessage(msg.from, media, {
         caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${data.minggu_ke}*.`,
       });
@@ -580,7 +654,7 @@ async function handleMessage(client, msg) {
       const targetGroup = "120363424800769453@g.us";
 
       if (fs.existsSync(portalPath)) {
-        const media = MessageMedia.fromFilePath(portalPath);
+        const media = { image: require("fs").readFileSync(portalPath) };
         const akun = getLastUsedAccount() || "Belum diketahui";
         client.sendMessage(targetGroup, media, {
           caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*`,
@@ -865,8 +939,8 @@ async function handleMessage(client, msg) {
         slow: false,
         host: "https://translate.google.com",
       });
-      const media = new MessageMedia("audio/mp3", base64, "audio.mp3");
-      await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
+      const media = { audio: Buffer.from(base64, "base64"), ptt: true };
+      await client.sendMessage(msg.from, media);
     } catch (err) {
       console.error(err);
       msg.reply("Terjadi kesalahan saat membuat voice note.");
@@ -1167,7 +1241,7 @@ async function handleMessage(client, msg) {
         topText,
         bottomText,
       );
-      const memeMedia = new MessageMedia("image/png", memeBase64, "meme.png");
+      const memeMedia = { image: Buffer.from(memeBase64, "base64") };
       await client.sendMessage(msg.from, memeMedia);
     } catch (err) {
       console.error("Gagal membuat meme:", err);
@@ -1183,11 +1257,7 @@ async function handleMessage(client, msg) {
     msg.reply("✍️ Sedang menulis di buku...");
     try {
       const nulisBase64 = await createNulis(teks);
-      const nulisMedia = new MessageMedia(
-        "image/png",
-        nulisBase64,
-        "nulis.png",
-      );
+      const nulisMedia = { image: Buffer.from(nulisBase64, "base64") };
       await client.sendMessage(msg.from, nulisMedia);
     } catch (err) {
       console.error("Gagal nulis:", err);
@@ -1247,8 +1317,8 @@ async function handleMessage(client, msg) {
         slow: false,
         host: "https://translate.google.com",
       });
-      const media = new MessageMedia("audio/mp3", base64, "audio.mp3");
-      await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
+      const media = { audio: Buffer.from(base64, "base64"), ptt: true };
+      await client.sendMessage(msg.from, media);
     } catch (err) {
       console.error(err);
       msg.reply("Yah, speakernya rusak (gagal memutar lirik).");
@@ -1261,10 +1331,13 @@ async function handleMessage(client, msg) {
       "ciee kepo sama ownerkuu yang ganteng imut lucu ini yakk?? xixixi",
     );
     try {
-      const ownerContact = await client.getContactById("6285704682918@c.us");
-      ownerContact.name = "RzkyAds";
-      ownerContact.pushname = "RzkyAds";
-      await client.sendMessage(msg.from, ownerContact);
+            const vcard = 'BEGIN:VCARD\\n' +
+            'VERSION:3.0\\n' + 
+            'FN:RzkyAds\\n' +
+            'ORG:Owner Bot;\\n' +
+            'TEL;type=CELL;type=VOICE;waid=6285704682918:+62 857-0468-2918\\n' +
+            'END:VCARD';
+      await client.sendMessage(msg.from, { contacts: { displayName: 'RzkyAds', contacts: [{ vcard }] } });
     } catch (err) {
       console.error("Gagal mengirim kontak owner:", err);
       msg.reply("Nomor Owner (RzkyAds): 085704682918");
@@ -1296,11 +1369,7 @@ async function handleMessage(client, msg) {
 
     if (media) {
       try {
-        await client.sendMessage(msg.from, media, {
-          sendMediaAsSticker: true,
-          stickerName: "Bot Stiker",
-          stickerAuthor: "RzkyAds",
-        });
+        await client.sendMessage(msg.from, { sticker: Buffer.from(media.data, 'base64') });
       } catch (err) {
         console.error("Gagal mengirim stiker:", err);
         msg.reply("Maaf, terjadi kesalahan saat membuat stiker.");

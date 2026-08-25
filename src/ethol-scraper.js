@@ -13,15 +13,17 @@ function getLastUsedAccount() {
 
 async function announceAbsen(client, groupId, matkul, tanggal) {
     try {
-        const chat = await client.getChatById(groupId);
         let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
+        let metadata = await client.groupMetadata(groupId);
+        let mentions = metadata.participants.map(p => p.id);
 
-        let mentions = chat.participants.map(p => p.id._serialized || p.id.$1 || p.id);
-
-        // Hidetag: mengirim pesan dengan objek mentions tanpa memunculkan '@nomor' di dalam teks
-        await chat.sendMessage(text, { mentions });
+        await client.sendMessage(groupId, { text: text, mentions: mentions });
     } catch (err) {
-        console.error('Gagal mengirim pengumuman absen:', err);
+        console.error('Gagal mengirim pengumuman absen dengan mentions:', err);
+        try {
+            let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
+            await client.sendMessage(groupId, { text: text });
+        } catch(e) {}
     }
 }
 

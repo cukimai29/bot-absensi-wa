@@ -1,42 +1,64 @@
 require('dotenv').config();
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeInMemoryStore } = require('@whiskeysockets/baileys');
+const pino = require('pino');
 const cron = require('node-cron');
 const { loadData, saveData } = require('./src/database');
 const { checkPortal, intensiveCheckPortal } = require('./src/ethol-scraper');
 const { handleMessage } = require('./src/commands');
 
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    authTimeoutMs: 300000, 
-    puppeteer: {
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage', 
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu',
-            '--disable-blink-features=AutomationControlled' 
-        ],
-        timeout: 0,
-        protocolTimeout: 300000 
-    },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-    }
-});
-
-client.on('qr', (qr) => {
-    console.log('Silakan scan QR Code ini dengan WhatsApp Anda:');
-    qrcode.generate(qr, { small: true });
-});
-
-let isBotStarted = false;
 let scheduledJobs = [];
+let isBotStarted = false;
+
+// Store to keep track of contacts
+const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) })
+
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('./session');
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    
+    const client = makeWASocket({
+        version,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: true,
+        auth: state,
+        generateHighQualityLinkPreview: true
+    });
+    
+    store.bind(client.ev);
+
+    client.ev.on('creds.update', saveCreds);
+
+    client.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('Koneksi terputus, reconnecting:', shouldReconnect);
+            if (shouldReconnect) {
+                startBot();
+            } else {
+                console.log('Logged out dari WhatsApp, hapus folder session dan jalankan ulang untuk scan QR.');
+            }
+        } else if (connection === 'open') {
+            console.log('Bot WhatsApp sudah siap dan terhubung!');
+            if (!isBotStarted) {
+                isBotStarted = true;
+                setupCronJobs(client);
+            }
+        }
+    });
+
+    client.ev.on('messages.upsert', async (m) => {
+        if (m.type !== 'notify') return;
+        const msg = m.messages[0];
+        if (!msg.message) return;
+        
+        // Handle message
+        await handleMessage(client, msg);
+    });
+
+    return client;
+}
 
 function scheduleTodayClasses(client) {
     scheduledJobs.forEach(job => job.stop());
@@ -74,172 +96,125 @@ function scheduleTodayClasses(client) {
     }
 }
 
-client.on('ready', () => {
-    console.log('Bot WhatsApp sudah siap dan terhubung!');
+function setupCronJobs(client) {
+    scheduleTodayClasses(client);
 
-    if (!isBotStarted) {
-        isBotStarted = true;
-        
-        // Atur jadwal kelas hari ini
+    cron.schedule('1 0 * * *', () => {
+        console.log('[SISTEM] Membaca jadwal baru untuk hari ini...');
         scheduleTodayClasses(client);
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
 
-        // Cron job setiap jam 00:01 malam untuk mereset dan membaca jadwal besok harinya
-        cron.schedule('1 0 * * *', () => {
-            console.log('[SISTEM] Membaca jadwal baru untuk hari ini...');
-            scheduleTodayClasses(client);
-        }, {
-            scheduled: true,
-            timezone: "Asia/Jakarta"
-        });
+    function scheduleRandomCheck() {
+        const now = new Date();
+        const currentHour = now.getHours();
 
-        function scheduleRandomCheck() {
-            const now = new Date();
-            const currentHour = now.getHours();
-
-            if (currentHour >= 5 && currentHour <= 21) {
-                console.log('Menjalankan pengecekan portal kampus secara acak...');
-                checkPortal(client);
-            } else {
-                console.log(`[${now.toLocaleTimeString('id-ID')}] Di luar jam kerja (05:00 - 21:00). Pengecekan ditunda.`);
-            }
-
-            const minMs = 15 * 60 * 1000;
-            const maxMs = 30 * 60 * 1000;
-            const randomDelay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-
-            const nextRun = new Date(now.getTime() + randomDelay);
-            console.log(`[Jadwal] Pengecekan berikutnya pada: ${nextRun.toLocaleTimeString('id-ID')} (Jeda: ${Math.round(randomDelay/60000)} menit)`);
-
-            setTimeout(scheduleRandomCheck, randomDelay);
+        if (currentHour >= 5 && currentHour <= 21) {
+            console.log('Menjalankan pengecekan portal kampus secara acak...');
+            checkPortal(client);
+        } else {
+            console.log(`[${now.toLocaleTimeString('id-ID')}] Di luar jam kerja (05:00 - 21:00). Pengecekan ditunda.`);
         }
 
-        scheduleRandomCheck();
+        const minMs = 15 * 60 * 1000;
+        const maxMs = 30 * 60 * 1000;
+        const randomDelay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
 
-        cron.schedule('0 0 * * 1', () => {
-            let data = loadData();
-            let pesan = "";
+        const nextRun = new Date(now.getTime() + randomDelay);
+        console.log(`[Jadwal] Pengecekan berikutnya pada: ${nextRun.toLocaleTimeString('id-ID')} (Jeda: ${Math.round(randomDelay/60000)} menit)`);
 
-            if (data.minggu_ke < 16) {
-                data.minggu_ke += 1;
-                pesan = `*Pemberitahuan Sistem*\n\nMinggu perkuliahan telah otomatis berganti ke *Minggu ke-${data.minggu_ke}*. Semangat belajar!`;
-                console.log(`[Otomatis] Minggu berganti menjadi minggu ke-${data.minggu_ke}`);
-            } else {
-                data.minggu_ke = 1;
-                data.semester = (data.semester || 1) + 1;
-                data.jadwal = {}; 
-                pesan = `*Pemberitahuan Sistem*\n\nSelamat datang di *Semester ${data.semester}*! Minggu perkuliahan telah direset kembali ke Minggu 1.`;
-                console.log(`[Otomatis] Semester ${data.semester} baru dimulai! Reset ke minggu 1.`);
-            }
-
-            saveData(data);
-
-            client.sendMessage(process.env.TARGET_GROUP_ID, pesan).catch(err => console.error("Gagal mengirim pengumuman ganti minggu:", err));
-        }, {
-            scheduled: true,
-            timezone: "Asia/Jakarta"
-        });
-
-        // Cron job untuk pengingat tugas kelas setiap hari jam 16:00 WIB
-        cron.schedule('0 16 * * *', () => {
-            let data = loadData();
-            let tugas = data.daftar_tugas || [];
-            if (tugas.length === 0) return;
-
-            let pesanReminder = "";
-            let count = 0;
-            
-            // Buat tanggal hari ini, besok, dan lusa dengan zona waktu Asia/Jakarta
-            let now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"}));
-            let hrIniStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
-            
-            let besok = new Date(now);
-            besok.setDate(besok.getDate() + 1);
-            let besokTgl = besok.getFullYear() + "-" + String(besok.getMonth()+1).padStart(2, '0') + "-" + String(besok.getDate()).padStart(2, '0');
-
-            let lusa = new Date(now);
-            lusa.setDate(lusa.getDate() + 2);
-            let lusaTgl = lusa.getFullYear() + "-" + String(lusa.getMonth()+1).padStart(2, '0') + "-" + String(lusa.getDate()).padStart(2, '0');
-
-            tugas.forEach(t => {
-                if (t.deadline === lusaTgl || t.deadline === besokTgl || t.deadline === hrIniStr) {
-                    let sisa = t.deadline === hrIniStr ? "*(HARI INI!)*" : (t.deadline === besokTgl ? "*(H-1/BESOK)*" : "*(H-2)*");
-                    pesanReminder += `- *${t.matkul}*: ${t.deskripsi} ${sisa}\n`;
-                    count++;
-                }
-            });
-
-            if (count > 0) {
-                let pesanAkhir = `🚨 *REMINDER TUGAS KELAS* 🚨\n\nPerhatian semuanya, ada ${count} tugas yang mendesak untuk segera diselesaikan:\n\n${pesanReminder}\nMohon segera dikerjakan ya! Ketik *.tugas* untuk melihat seluruh daftar tugas.`;
-                
-                client.getChatById(process.env.TARGET_GROUP_ID).then(chat => {
-                    if (chat.isGroup) {
-                        let participants = chat.participants.map(p => p.id._serialized);
-                        chat.sendMessage(`🔊 *PENGUMUMAN*\n\n${pesanAkhir}`, { mentions: participants }).catch(console.error);
-                    } else {
-                        client.sendMessage(process.env.TARGET_GROUP_ID, pesanAkhir).catch(console.error);
-                    }
-                }).catch(err => {
-                    console.error("Gagal get chat untuk hidetag reminder:", err);
-                    client.sendMessage(process.env.TARGET_GROUP_ID, pesanAkhir).catch(console.error);
-                });
-                console.log(`[Pengingat Tugas] Berhasil mengirim peringatan hidetag untuk ${count} tugas.`);
-            }
-        }, {
-            scheduled: true,
-            timezone: "Asia/Jakarta"
-        });
-
-        // Cron job untuk pengingat sholat subuh dan kas kelas setiap hari jam 05:00 WIB
-        cron.schedule('0 5 * * *', () => {
-            const pesanSubuh = `🌅 *SELAMAT PAGI SEMUANYA!* 🌅\n\nJangan lupa untuk segera bangun dan melaksanakan sholat subuh bagi yang menjalankan. Awali hari dengan doa agar dilancarkan segala urusannya!\n\n💸 *REMINDER KAS KELAS* 💸\nSekalian ngingetin buat teman-teman yang belum bayar uang kas kelas, yuk segera dilunasi ke bendahara agar keuangan kelas kita tetap sehat dan lancar!`;
-            
-            client.getChatById(process.env.TARGET_GROUP_ID).then(chat => {
-                if (chat.isGroup) {
-                    let participants = chat.participants.map(p => p.id._serialized || p.id.$1 || p.id);
-                    chat.sendMessage(pesanSubuh, { mentions: participants }).catch(console.error);
-                } else {
-                    client.sendMessage(process.env.TARGET_GROUP_ID, pesanSubuh).catch(console.error);
-                }
-            }).catch(err => {
-                console.error("Gagal get chat untuk hidetag subuh:", err);
-                client.sendMessage(process.env.TARGET_GROUP_ID, pesanSubuh).catch(console.error);
-            });
-            console.log(`[Pengingat Pagi] Berhasil mengirim hidetag sholat subuh dan kas kelas.`);
-        }, {
-            scheduled: true,
-            timezone: "Asia/Jakarta"
-        });
+        setTimeout(scheduleRandomCheck, randomDelay);
     }
-});
 
-client.on('message', async msg => {
-    await handleMessage(client, msg);
-});
+    scheduleRandomCheck();
 
-client.on('vote_update', async vote => {
-    if (vote.selectedOptions && vote.selectedOptions.length > 0) {
-        let selectedOption = vote.selectedOptions[0].name.toLowerCase();
-        if (selectedOption === '.menu') {
+    cron.schedule('0 0 * * 1', () => {
+        let data = loadData();
+        let pesan = "";
+
+        if (data.minggu_ke < 16) {
+            data.minggu_ke += 1;
+            pesan = `*Pemberitahuan Sistem*\n\nMinggu perkuliahan telah otomatis berganti ke *Minggu ke-${data.minggu_ke}*. Semangat belajar!`;
+            console.log(`[Otomatis] Minggu berganti menjadi minggu ke-${data.minggu_ke}`);
+        } else {
+            data.minggu_ke = 1;
+            data.semester = (data.semester || 1) + 1;
+            data.jadwal = {}; 
+            pesan = `*Pemberitahuan Sistem*\n\nSelamat datang di *Semester ${data.semester}*! Minggu perkuliahan telah direset kembali ke Minggu 1.`;
+            console.log(`[Otomatis] Semester ${data.semester} baru dimulai! Reset ke minggu 1.`);
+        }
+
+        saveData(data);
+
+        client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesan }).catch(err => console.error("Gagal mengirim pengumuman ganti minggu:", err));
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
+
+    cron.schedule('0 16 * * *', async () => {
+        let data = loadData();
+        let tugas = data.daftar_tugas || [];
+        if (tugas.length === 0) return;
+
+        let pesanReminder = "";
+        let count = 0;
+        
+        let now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"}));
+        let hrIniStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+        
+        let besok = new Date(now);
+        besok.setDate(besok.getDate() + 1);
+        let besokTgl = besok.getFullYear() + "-" + String(besok.getMonth()+1).padStart(2, '0') + "-" + String(besok.getDate()).padStart(2, '0');
+
+        let lusa = new Date(now);
+        lusa.setDate(lusa.getDate() + 2);
+        let lusaTgl = lusa.getFullYear() + "-" + String(lusa.getMonth()+1).padStart(2, '0') + "-" + String(lusa.getDate()).padStart(2, '0');
+
+        tugas.forEach(t => {
+            if (t.deadline === lusaTgl || t.deadline === besokTgl || t.deadline === hrIniStr) {
+                let sisa = t.deadline === hrIniStr ? "*(HARI INI!)*" : (t.deadline === besokTgl ? "*(H-1/BESOK)*" : "*(H-2)*");
+                pesanReminder += `- *${t.matkul}*: ${t.deskripsi} ${sisa}\n`;
+                count++;
+            }
+        });
+
+        if (count > 0) {
+            let pesanAkhir = `🚨 *REMINDER TUGAS KELAS* 🚨\n\nPerhatian semuanya, ada ${count} tugas yang mendesak untuk segera diselesaikan:\n\n${pesanReminder}\nMohon segera dikerjakan ya! Ketik *.tugas* untuk melihat seluruh daftar tugas.`;
+            
             try {
-                // Ekstrak ID chat dari serialized ID pesan aslinya
-                let parts = vote.parentMessage.id ? vote.parentMessage.id._serialized.split('_') : vote.parentMessage._serialized.split('_');
-                let chatId = parts[1];
-                
-                // Buat pesan palsu agar fungsi handleMessage memprosesnya sebagai perintah .menu
-                let fakeMsg = {
-                    body: '.menu',
-                    from: chatId,
-                    author: vote.voter,
-                    timestamp: Math.floor(Date.now() / 1000),
-                    reply: (content) => client.sendMessage(chatId, content),
-                    getChat: () => client.getChatById(chatId)
-                };
-                await handleMessage(client, fakeMsg);
+                let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
+                let participants = metadata.participants.map(p => p.id);
+                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: `🔊 *PENGUMUMAN*\n\n${pesanAkhir}`, mentions: participants });
             } catch (err) {
-                console.error("Gagal memproses poll:", err);
+                console.error("Gagal get chat untuk hidetag reminder:", err);
+                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanAkhir }).catch(console.error);
             }
+            console.log(`[Pengingat Tugas] Berhasil mengirim peringatan hidetag untuk ${count} tugas.`);
         }
-    }
-});
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
 
-client.initialize();
+    cron.schedule('0 5 * * *', async () => {
+        const pesanSubuh = `🌅 *SELAMAT PAGI SEMUANYA!* 🌅\n\nJangan lupa untuk segera bangun dan melaksanakan sholat subuh bagi yang menjalankan. Awali hari dengan doa agar dilancarkan segala urusannya!\n\n💸 *REMINDER KAS KELAS* 💸\nSekalian ngingetin buat teman-teman yang belum bayar uang kas kelas, yuk segera dilunasi ke bendahara agar keuangan kelas kita tetap sehat dan lancar!`;
+        
+        try {
+            let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
+            let participants = metadata.participants.map(p => p.id);
+            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh, mentions: participants });
+        } catch (err) {
+            console.error("Gagal get chat untuk hidetag subuh:", err);
+            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh }).catch(console.error);
+        }
+        console.log(`[Pengingat Pagi] Berhasil mengirim hidetag sholat subuh dan kas kelas.`);
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
+}
+
+startBot();

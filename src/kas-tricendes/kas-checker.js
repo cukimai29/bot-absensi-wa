@@ -151,8 +151,7 @@ async function checkKasAndSend(client, targetGroupId, manualTrigger = false) {
         text += `${sheetUrl}\n\n`;
         text += `Mohon segera melunasi kas masing-masing agar rekap keuangan tetap rapi. Terima kasih! 🙏`;
         // Kirim ke grup target
-        const chat = await client.getChatById(targetGroupId);
-        await chat.sendMessage(text, { mentions });
+        await client.sendMessage(targetGroupId, { text: text, mentions: mentions });
         return `Berhasil mengirimkan pengingat kas ke grup untuk ${debtors.length} orang.`;
     } catch (err) {
         console.error('Gagal memproses pengingat kas:', err);
