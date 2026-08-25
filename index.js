@@ -230,6 +230,20 @@ function setupCronJobs(client) {
         scheduled: true,
         timezone: "Asia/Jakarta"
     });
+
+    cron.schedule('0 * * * *', async () => {
+        try {
+            let nowStr = new Date().toLocaleTimeString("id-ID", {timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit"});
+            let bio = `🟢 Aktif | Mengawal Absensi Mahasiswa | Update: ${nowStr} WIB`;
+            await client.updateProfileStatus(bio);
+            console.log(`[Auto-Bio] Berhasil memperbarui Bio WhatsApp: ${bio}`);
+        } catch(e) {
+            console.error("Gagal update Bio:", e);
+        }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
 }
 
 startBot();

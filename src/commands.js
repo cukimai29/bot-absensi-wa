@@ -134,6 +134,10 @@ if (process.env.GEMINI_API_KEY) {
 // State untuk menyimpan sesi game grup
 const activeGames = {};
 
+// State untuk anti-spam
+const userCooldowns = new Map();
+const COOLDOWN_MS = 3000; // 3 detik
+
 async function handleMessage(client, rawMsg) {
   if (!rawMsg.message) return;
   const _chatId = rawMsg.key.remoteJid;
@@ -155,6 +159,23 @@ async function handleMessage(client, rawMsg) {
         try { bodyText = JSON.parse(paramsJson).id; } catch (e) { }
       }
     }
+  }
+
+  // Anti-Spam Check
+  if (bodyText.startsWith('.')) {
+    const now = Date.now();
+    const lastTime = userCooldowns.get(_senderId) || 0;
+    if (now - lastTime < COOLDOWN_MS) {
+      if (now - lastTime > COOLDOWN_MS - 2000) {
+        // Hanya peringatkan jika belum lama
+        await client.sendMessage(_chatId, { text: "⏳ *Woah, pelan-pelan!* Sistem mendeteksi Spam. Silakan tunggu beberapa detik sebelum menggunakan perintah bot lagi." }, { quoted: rawMsg });
+      }
+      return; // Ignore the message
+    }
+    userCooldowns.set(_senderId, now);
+    
+    // Smart React: Tanda Sedang Diproses
+    await client.sendMessage(_chatId, { react: { text: "⏳", key: rawMsg.key } });
   }
 
   const fakeVerif = {
@@ -185,10 +206,15 @@ async function handleMessage(client, rawMsg) {
       }
     },
 
+    react: async (emoji) => {
+      return await client.sendMessage(_chatId, { react: { text: emoji, key: rawMsg.key } });
+    },
+
     getChat: async () => {
       return {
         isGroup: _isGroup,
         sendStateTyping: async () => await client.sendPresenceUpdate('composing', _chatId),
+        sendStateRecording: async () => await client.sendPresenceUpdate('recording', _chatId),
         clearState: async () => await client.sendPresenceUpdate('paused', _chatId),
         participants: _isGroup ? (await client.groupMetadata(_chatId)).participants : []
       };
@@ -224,8 +250,10 @@ async function handleMessage(client, rawMsg) {
       const delay = Math.floor(Math.random() * 2000) + 1500;
       await new Promise((resolve) => setTimeout(resolve, delay));
       await chat.clearState();
+      await msg.react('✅').catch(()=>{});
       return await originalReply(content, chatId, options);
     } catch (err) {
+      await msg.react('❌').catch(()=>{});
       return await originalReply(content, chatId, options);
     }
   };
@@ -951,11 +979,21 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       return;
     }
     try {
-      const base64 = await googleTTS.getAudioBase64(teks, {
+      const chat = await msg.getChat();
+      await chat.sendStateRecording();
+      
+      const delay = Math.floor(Math.random() * 2000) + 2000;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      const url = googleTTS.getAudioUrl(teks, {
         lang: lang,
         slow: false,
         host: "https://translate.google.com",
       });
+
+      const axios = require('axios');
+      const { data } = await axios.get(url, { responseType: "arraybuffer" });
+      const base64 = Buffer.from(data, "binary").toString("base64");
       
       const fs = require('fs');
       const { execSync } = require('child_process');
@@ -968,8 +1006,6 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       fs.writeFileSync(tempMp3, Buffer.from(base64, "base64"));
       
       try {
-        // iOS fully supports MP4 (AAC) for Voice Notes (PTT). 
-        // This avoids the strict OGG/Opus header rejections on iPhone.
         execSync(`ffmpeg -i "${tempMp3}" -c:a aac -b:a 64k -vn "${tempMp4}" -y`, { stdio: 'ignore' });
         const mp4Buffer = fs.readFileSync(tempMp4);
         
@@ -979,6 +1015,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
           ptt: true 
         };
         await client.sendMessage(msg.from, media, { quoted: fakeVerif });
+        await msg.react('✅');
       } catch (e) {
          console.error("FFMPEG conversion failed, falling back to MP3:", e);
          const media = { 
@@ -987,13 +1024,16 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
             ptt: false 
          };
          await client.sendMessage(msg.from, media, { quoted: fakeVerif });
+         await msg.react('✅');
       } finally {
          if (fs.existsSync(tempMp3)) fs.unlinkSync(tempMp3);
          if (fs.existsSync(tempMp4)) fs.unlinkSync(tempMp4);
+         await chat.clearState();
       }
     } catch (err) {
       console.error(err);
-      msg.reply("Terjadi kesalahan saat membuat voice note.");
+      msg.reply("Maaf, terjadi kesalahan saat memproses teks ke suara.");
+      await msg.react('❌');
     }
   }
 
