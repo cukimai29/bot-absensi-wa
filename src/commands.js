@@ -955,12 +955,12 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       fs.writeFileSync(tempMp3, Buffer.from(base64, "base64"));
       
       try {
-        execSync(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 32k -vbr on "${tempOgg}" -y`, { stdio: 'ignore' });
+        execSync(`ffmpeg -i "${tempMp3}" -c:a libopus -b:a 32k -vbr on -compression_level 10 -frame_duration 20 -application voip "${tempOgg}" -y`, { stdio: 'ignore' });
         const oggBuffer = fs.readFileSync(tempOgg);
         
         const media = { 
           audio: oggBuffer, 
-          mimetype: "audio/ogg; codecs=opus", 
+          mimetype: "audio/mp4", 
           ptt: true 
         };
         await client.sendMessage(msg.from, media);
