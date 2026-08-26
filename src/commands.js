@@ -138,6 +138,9 @@ const activeGames = {};
 const userCooldowns = new Map();
 const COOLDOWN_MS = 3000; // 3 detik
 
+// State untuk menyimpan memori percakapan Agentic (maks 15 pesan per chat)
+const chatMemory = new Map();
+
 async function handleMessage(client, rawMsg) {
   if (!rawMsg.message) return;
   const _chatId = rawMsg.key.remoteJid;
@@ -161,8 +164,25 @@ async function handleMessage(client, rawMsg) {
     }
   }
 
-  // Cek apakah ini sebuah perintah (dimulai dengan . atau kata kunci khusus)
-  const isCommand = bodyText.startsWith('.') || bodyText.toLowerCase() === 'bot' || bodyText.toLowerCase().includes("assalamu");
+  }
+
+  // Simpan pesan ke memori pasif
+  if (bodyText && bodyText.trim().length > 0 && bodyText.length < 500) {
+    if (!chatMemory.has(_chatId)) chatMemory.set(_chatId, []);
+    const history = chatMemory.get(_chatId);
+    
+    let senderName = rawMsg.pushName || (_senderId ? _senderId.split('@')[0] : "User");
+    let isBot = rawMsg.key.fromMe;
+    
+    history.push(`[${isBot ? 'Bot' : senderName}]: ${bodyText}`);
+    
+    if (history.length > 15) {
+        history.shift(); // Buang pesan paling lama
+    }
+  }
+
+  // Cek apakah ini sebuah perintah kaku (dimulai dengan .)
+  const isCommand = bodyText.startsWith('.');
   
   // Anti-Spam Check
   if (isCommand) {
@@ -249,10 +269,15 @@ async function handleMessage(client, rawMsg) {
 
     getQuotedMessage: async () => {
       if (!msg.hasQuotedMsg) return null;
-      const quoted = rawMsg.message.extendedTextMessage.contextInfo.quotedMessage;
+      const contextInfo = rawMsg.message.extendedTextMessage.contextInfo;
+      const quoted = contextInfo.quotedMessage;
+      let botJid = client.user.id.split(':')[0] + '@s.whatsapp.net';
+      let isQuotedFromMe = contextInfo.participant === botJid;
+      
       return {
         body: quoted.conversation || quoted.extendedTextMessage?.text || quoted.imageMessage?.caption || '',
         hasMedia: !!(quoted.imageMessage || quoted.videoMessage || quoted.documentMessage),
+        fromMe: isQuotedFromMe,
         downloadMedia: async () => {
           const fakeMsg = { message: quoted };
           const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { logger: require('pino')({ level: 'silent' }) });
@@ -1503,6 +1528,55 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       msg.reply(
         'Mohon kirim foto dengan caption ".stiker" atau reply foto dengan ".stiker"',
       );
+    }
+  }
+
+  // --- AGENTIC SYSTEM HANDLER ---
+  if (!isCommand && bodyText && ai) {
+    const isMentioned = bodyText.toLowerCase().includes("@bot") || 
+                        bodyText.toLowerCase().includes("smartbot") || 
+                        bodyText.toLowerCase().includes("bot,") ||
+                        bodyText.toLowerCase().startsWith("bot ") ||
+                        bodyText.toLowerCase() === "bot";
+    
+    let isReplyToBot = false;
+    if (msg.hasQuotedMsg) {
+       const quoted = await msg.getQuotedMessage();
+       if (quoted && quoted.fromMe) isReplyToBot = true;
+    }
+
+    if (isMentioned || isReplyToBot || !_isGroup) {
+      const chat = await msg.getChat();
+      await chat.sendStateTyping();
+      
+      const db = loadData();
+      const nowStr = new Date().toLocaleString("id-ID", {timeZone: "Asia/Jakarta", dateStyle: 'full', timeStyle: 'short'});
+      
+      const systemPrompt = `Kamu adalah SmartBot, asisten virtual buatan RzkyAds yang cerdas, asik, ala mahasiswa Gen Z. Jangan kaku. Jawab dengan singkat, padat, dan ramah. Gunakan emoji secukupnya.
+Waktu saat ini: ${nowStr}
+Data Kelas Saat Ini:
+- Semester: ${db.semester || 1}
+- Minggu Ke: ${db.minggu_ke || 1}
+- Jadwal Kuliah: ${JSON.stringify(db.jadwal)}
+- Daftar Tugas: ${JSON.stringify(db.daftar_tugas || [])}
+- Kas Kelas: ${JSON.stringify(db.kas_kelas || {})}
+
+Berikut adalah memori 15 chat terakhir di grup ini agar kamu paham konteks pembicaraan:
+${chatMemory.get(_chatId) ? chatMemory.get(_chatId).join("\n") : "Belum ada chat."}
+
+Instruksi: Jawablah pertanyaan user terbaru berdasarkan data di atas (jika relevan) atau tanggapi obrolan mereka.`;
+
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: systemPrompt + `\n\nPertanyaan/Pesan User Terbaru:\n${bodyText}`,
+        });
+        await chat.clearState();
+        msg.reply(response.text);
+      } catch (err) {
+        await chat.clearState();
+        console.error("Agentic System Error:", err);
+      }
     }
   }
 }
