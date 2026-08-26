@@ -12,17 +12,22 @@ function getLastUsedAccount() {
 }
 
 async function announceAbsen(client, groupId, matkul, tanggal) {
+    const fakeVerif = {
+        key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: groupId },
+        message: { conversation: "SMARTBOT by RzkyAds" }
+    };
+
     try {
         let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
         let metadata = await client.groupMetadata(groupId);
         let mentions = metadata.participants.map(p => p.id);
 
-        await client.sendMessage(groupId, { text: text, mentions: mentions });
+        await client.sendMessage(groupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
     } catch (err) {
         console.error('Gagal mengirim pengumuman absen dengan mentions:', err);
         try {
             let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
-            await client.sendMessage(groupId, { text: text });
+            await client.sendMessage(groupId, { text: text }, { quoted: fakeVerif });
         } catch(e) {}
     }
 }
