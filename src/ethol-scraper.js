@@ -18,7 +18,7 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
     };
 
     try {
-        let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
+        let text = `🚨 *ATTENTION PLEASE!* 🚨\n\nAbsensi untuk matkul *${matkul}* udah dibuka nih di ETHOL! 🔥\n\nBuruan diabsen yaa kawan-kawan, jangan sampai lupa apalagi nunggu mepet! Ingat, alpha menumpuk = SP di depan mata! 💀🏃‍♂️💨\n\n📅 Tanggal: ${tanggal}`;
         let metadata = await client.groupMetadata(groupId);
         let mentions = metadata.participants.map(p => p.id);
 
@@ -26,7 +26,7 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
     } catch (err) {
         console.error('Gagal mengirim pengumuman absen dengan mentions:', err);
         try {
-            let text = `Absen Ethol *${matkul}* telah dibuka. Segera absen, jika tidak kamu akan alpha, jika alphamu banyak kamu akan diberikan SP!!!!!\n\ntanggal : ${tanggal}`;
+            let text = `🚨 *ATTENTION PLEASE!* 🚨\n\nAbsensi untuk matkul *${matkul}* udah dibuka nih di ETHOL! 🔥\n\nBuruan diabsen yaa kawan-kawan, jangan sampai lupa apalagi nunggu mepet! Ingat, alpha menumpuk = SP di depan mata! 💀🏃‍♂️💨\n\n📅 Tanggal: ${tanggal}`;
             await client.sendMessage(groupId, { text: text }, { quoted: fakeVerif });
         } catch(e) {}
     }
