@@ -1574,6 +1574,11 @@ Instruksi: Jawablah pertanyaan user terbaru berdasarkan data di atas (jika relev
       } catch (err) {
         await chat.clearState();
         console.error("Agentic System Error:", err);
+        if (err.message && err.message.includes("429")) {
+            msg.reply("Maaf, kuota AI harian/menit bot sudah habis! 😭 Silakan tunggu beberapa saat atau coba lagi besok.");
+        } else {
+            msg.reply("Duh, otak AI-ku lagi error nih. Coba lagi nanti ya!");
+        }
       }
     }
   }
