@@ -164,8 +164,6 @@ async function handleMessage(client, rawMsg) {
     }
   }
 
-  }
-
   // Simpan pesan ke memori pasif
   if (bodyText && bodyText.trim().length > 0 && bodyText.length < 500) {
     if (!chatMemory.has(_chatId)) chatMemory.set(_chatId, []);
