@@ -265,4 +265,117 @@ async function intensiveCheckPortal(client, targetMatkul) {
     }
 }
 
-module.exports = { checkPortal, announceAbsen, getLastUsedAccount, intensiveCheckPortal };
+// --- AI EXTRACTOR: Sinkronisasi Jadwal & Tugas ---
+const { GoogleGenAI } = require("@google/genai");
+
+async function syncJadwalTugas() {
+    console.log("[ETHOL SYNC] Memulai sinkronisasi Jadwal & Tugas...");
+    if (!process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEYS) {
+        console.log("[ETHOL SYNC] Dibatalkan: API Key Gemini tidak ditemukan.");
+        return;
+    }
+
+    const browser = await puppeteer.launch({ 
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+    });
+    
+    try {
+        const page = await browser.newPage();
+        const username = getLastUsedAccount();
+        const password = username === process.env.ETHOL_USERNAME ? process.env.ETHOL_PASSWORD : process.env.ETHOL_PASSWORD_2;
+        
+        await page.goto('https://login.pens.ac.id/cas/login?service=https%3A%2F%2Fethol.pens.ac.id%2Fapi%2Fauth%2Fcas-callback', { waitUntil: 'networkidle2' });
+        await page.type('#username', username);
+        await page.type('#password', password);
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.keyboard.press('Enter')
+        ]);
+        
+        // 1. Ekstrak Beranda
+        await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
+        await new Promise(r => setTimeout(r, 4000));
+        let berandaText = await page.evaluate(() => document.body.innerText);
+
+        // 2. Ekstrak Jadwal
+        await page.goto('https://ethol.pens.ac.id/mahasiswa/jadwal-kuliah', { waitUntil: 'networkidle2' }).catch(()=>{});
+        await new Promise(r => setTimeout(r, 3000));
+        let jadwalText = await page.evaluate(() => document.body.innerText);
+
+        // 3. Ekstrak Tugas
+        await page.goto('https://ethol.pens.ac.id/mahasiswa/tugas', { waitUntil: 'networkidle2' }).catch(()=>{});
+        await new Promise(r => setTimeout(r, 3000));
+        let tugasText = await page.evaluate(() => document.body.innerText);
+
+        console.log("[ETHOL SYNC] Data mentah berhasil diambil. Memproses menggunakan AI...");
+
+        let apiKeys = [];
+        if (process.env.GEMINI_API_KEYS) {
+            apiKeys = process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(k => k);
+        } else if (process.env.GEMINI_API_KEY) {
+            apiKeys = [process.env.GEMINI_API_KEY.trim()];
+        }
+        
+        const ai = new GoogleGenAI({ apiKey: apiKeys[0] });
+
+        const prompt = `Anda adalah sistem parser JSON.
+Berikut adalah teks kasar dari portal akademik ETHOL milik mahasiswa. Teks ini terbagi menjadi 3 bagian: Beranda, Jadwal Kuliah, dan Daftar Tugas.
+Tugas Anda adalah mengekstrak informasi jadwal dan tugas (khususnya yang berstatus "Belum Dikerjakan" atau sejenisnya) dan memformatnya persis ke dalam format JSON berikut. Jangan output teks apa pun selain JSON murni (tanpa markdown).
+
+Format JSON yang Diharapkan:
+{
+  "minggu_ke": 1,
+  "jadwal": {
+    "minggu_1": [
+      { "matkul": "Nama Matkul", "hari": "Senin", "jam": "08:00 - 10:00", "ruang": "Ruang A" }
+    ]
+  },
+  "daftar_tugas": [
+    { "matkul": "Nama Matkul", "judul": "Judul Tugas", "deadline": "2026-08-30 23:59", "status": "Belum Dikerjakan" }
+  ]
+}
+
+Jika informasi minggu_ke tidak ditemukan, asumsikan minggu 1. Ekstrak sebanyak mungkin tugas yang belum selesai.
+
+=== TEKS BERANDA ===
+${berandaText.substring(0, 3000)}
+
+=== TEKS JADWAL KULIAH ===
+${jadwalText.substring(0, 5000)}
+
+=== TEKS DAFTAR TUGAS ===
+${tugasText.substring(0, 5000)}`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-3.6-flash",
+            contents: prompt,
+        });
+
+        let jsonText = response.text.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        const extractedData = JSON.parse(jsonText);
+
+        const { loadData, saveData } = require('./database');
+        let db = loadData();
+        
+        if (extractedData.jadwal) {
+            db.jadwal = extractedData.jadwal;
+        }
+        if (extractedData.daftar_tugas) {
+            db.daftar_tugas = extractedData.daftar_tugas;
+        }
+        if (extractedData.minggu_ke) {
+            db.minggu_ke = extractedData.minggu_ke;
+        }
+        
+        saveData(db);
+        console.log("[ETHOL SYNC] Sinkronisasi berhasil! Jadwal dan Tugas terbaru telah disimpan ke database.");
+
+    } catch (err) {
+        console.error("[ETHOL SYNC] Gagal melakukan sinkronisasi:", err);
+    } finally {
+        await browser.close();
+    }
+}
+
+module.exports = { checkPortal, announceAbsen, getLastUsedAccount, intensiveCheckPortal, syncJadwalTugas };

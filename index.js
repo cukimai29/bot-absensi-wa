@@ -3,7 +3,7 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const pino = require('pino');
 const cron = require('node-cron');
 const { loadData, saveData } = require('./src/database');
-const { checkPortal, intensiveCheckPortal } = require('./src/ethol-scraper');
+const { checkPortal, intensiveCheckPortal, syncJadwalTugas } = require('./src/ethol-scraper');
 const { handleMessage } = require('./src/commands');
 
 let scheduledJobs = [];
@@ -136,6 +136,25 @@ function setupCronJobs(client) {
         scheduled: true,
         timezone: "Asia/Jakarta"
     });
+
+    // Jalankan Sinkronisasi Jadwal & Tugas ETHOL (via AI) setiap jam 06:00 dan 12:00
+    cron.schedule('0 6,12 * * *', async () => {
+        try {
+            await syncJadwalTugas();
+            // Muat ulang jadwal alarm absensi karena ada kemungkinan jadwal baru masuk
+            scheduleTodayClasses(client); 
+        } catch (err) {
+            console.error('Gagal menjalankan syncJadwalTugas cron:', err);
+        }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
+
+    // Jalankan satu kali setelah bot siap (delay 10 detik agar tidak bentrok dengan proses awal)
+    setTimeout(() => {
+        syncJadwalTugas().then(() => scheduleTodayClasses(client)).catch(console.error);
+    }, 10000);
 
     function scheduleRandomCheck() {
         const now = new Date();
