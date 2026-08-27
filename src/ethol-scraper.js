@@ -295,17 +295,17 @@ async function syncJadwalTugas() {
         
         // 1. Ekstrak Beranda
         await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(e => console.log("Beranda timeout ignored"));
-        await new Promise(r => setTimeout(r, 4000));
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 10000 }).catch(() => {}); // Tunggu loading selesai
         let berandaText = await page.evaluate(() => document.body.innerText);
 
         // 2. Ekstrak Jadwal
         await page.goto('https://ethol.pens.ac.id/mahasiswa/jadwal-kuliah', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(()=>{});
-        await new Promise(r => setTimeout(r, 3000));
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 15000 }).catch(() => {}); // Lebih lama untuk jadwal karena data tabel
         let jadwalText = await page.evaluate(() => document.body.innerText);
 
         // 3. Ekstrak Tugas
         await page.goto('https://ethol.pens.ac.id/mahasiswa/tugas', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(()=>{});
-        await new Promise(r => setTimeout(r, 3000));
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 15000 }).catch(() => {}); 
         let tugasText = await page.evaluate(() => document.body.innerText);
 
         console.log("[ETHOL SYNC] Data mentah berhasil diambil. Memproses menggunakan AI...");
