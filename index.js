@@ -203,7 +203,7 @@ function setupCronJobs(client) {
         timezone: "Asia/Jakarta"
     });
 
-    cron.schedule('0 16 * * *', async () => {
+    cron.schedule('0 7 * * *', async () => {
         let data = loadData();
         let tugas = data.daftar_tugas || [];
         if (tugas.length === 0) return;
@@ -218,14 +218,11 @@ function setupCronJobs(client) {
         besok.setDate(besok.getDate() + 1);
         let besokTgl = besok.getFullYear() + "-" + String(besok.getMonth()+1).padStart(2, '0') + "-" + String(besok.getDate()).padStart(2, '0');
 
-        let lusa = new Date(now);
-        lusa.setDate(lusa.getDate() + 2);
-        let lusaTgl = lusa.getFullYear() + "-" + String(lusa.getMonth()+1).padStart(2, '0') + "-" + String(lusa.getDate()).padStart(2, '0');
-
         tugas.forEach(t => {
-            if (t.deadline === lusaTgl || t.deadline === besokTgl || t.deadline === hrIniStr) {
-                let sisa = t.deadline === hrIniStr ? "*(HARI INI!)*" : (t.deadline === besokTgl ? "*(H-1/BESOK)*" : "*(H-2)*");
-                pesanReminder += `- *${t.matkul}*: ${t.deskripsi} ${sisa}\n`;
+            let deadlineDateOnly = t.deadline ? t.deadline.substring(0, 10) : "";
+            if (deadlineDateOnly === besokTgl || deadlineDateOnly === hrIniStr) {
+                let sisa = deadlineDateOnly === hrIniStr ? "*(HARI INI! 😱)*" : "*(H-1 BESOK ⚠️)*";
+                pesanReminder += `- *${t.matkul}*: ${t.judul || t.deskripsi} ${sisa}\n`;
                 count++;
             }
         });
