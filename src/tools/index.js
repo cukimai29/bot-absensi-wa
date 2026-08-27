@@ -2,6 +2,7 @@ const { getScheduleTool, addScheduleTool, deleteScheduleTool } = require('./sche
 const { getTasksTool, addTaskTool, deleteTaskTool } = require('./taskTools');
 const { checkKasTool, mapKasContactTool } = require('./kasTools');
 const { checkEtholTool } = require('./etholTools');
+const { getCurrentTimeTool } = require('./generalTools');
 
 /**
  * Central Tool Registry untuk Vercel AI SDK Gemini Agent
@@ -15,7 +16,8 @@ const allTools = {
     deleteTask: deleteTaskTool,
     checkKas: checkKasTool,
     mapKasContact: mapKasContactTool,
-    checkEthol: checkEtholTool
+    checkEthol: checkEtholTool,
+    getCurrentTime: getCurrentTimeTool
 };
 
 module.exports = { allTools };

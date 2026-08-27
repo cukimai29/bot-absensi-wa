@@ -14,6 +14,10 @@ const google = createGoogleGenerativeAI({
 function formatFallbackFromToolResult(toolName, tr) {
     if (!tr) return null;
 
+    if (toolName === 'getCurrentTime') {
+        return `🕒 *INFORMASI WAKTU SAAT INI (WIB)*\n\nHari: *${tr.hari}*\nTanggal: *${tr.tanggalFormatted}*\nPukul: *${tr.waktuFormatted}*`;
+    }
+
     if (toolName === 'checkEthol') {
         let msg = `🔍 *HASIL PENGECEKAN ETHOL PENS*\n\n`;
         msg += `👤 Akun Login: *${tr.accountUsed || 'Akun Utama'}*\n`;
@@ -45,7 +49,7 @@ function formatFallbackFromToolResult(toolName, tr) {
 
     if (toolName === 'getSchedule') {
         if (!tr.jadwal || tr.jadwal.length === 0) {
-            return `📅 *Jadwal Hari ${tr.hari || ''}*: Tidak ada jadwal perkuliahan.`;
+            return `📅 *Jadwal Hari ${tr.hari || 'Ini'}*: Tidak ada jadwal perkuliahan.`;
         }
         let msg = `📅 *JADWAL KULIAH HARI ${(tr.hari || '').toUpperCase()}*\n\n`;
         tr.jadwal.forEach((j, i) => {
@@ -115,7 +119,8 @@ async function processAgentQuery(userPrompt, historyMsgs = []) {
                     for (let s of result.steps) {
                         if (s.toolResults && s.toolResults.length > 0) {
                             for (let trObj of s.toolResults) {
-                                const formatted = formatFallbackFromToolResult(trObj.toolName, trObj.result);
+                                const toolData = trObj.output !== undefined ? trObj.output : trObj.result;
+                                const formatted = formatFallbackFromToolResult(trObj.toolName, toolData);
                                 if (formatted) {
                                     finalText = formatted;
                                     break;
