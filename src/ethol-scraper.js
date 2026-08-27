@@ -366,7 +366,7 @@ ${tugasText.substring(0, 5000)}`;
             } catch (err) {
                 lastError = err;
                 if (err.message && err.message.includes("429")) {
-                    console.log(`[AI] Kuota 429 Limit pada Key #${i+1}! ${i+1 < apiKeys.length ? \`Pindah ke API Key cadangan #\${i+2}...\` : 'Semua API Key habis.'}`);
+                    console.log("[AI] Kuota 429 Limit pada Key #" + (i+1) + "! " + (i+1 < apiKeys.length ? "Pindah ke API Key cadangan #" + (i+2) + "..." : "Semua API Key habis."));
                 } else {
                     console.log(`[AI] Error tak terduga pada Key #${i+1}: ${err.message}. Mencoba key selanjutnya...`);
                 }
