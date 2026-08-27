@@ -144,8 +144,9 @@ async function checkPortal(client) {
     }
 }
 
-async function intensiveCheckPortal(client, targetMatkul) {
-    console.log(`[INTENSIF] Memulai pengecekan intensif 10 menit untuk matkul: ${targetMatkul}`);
+async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 * 60 * 1000) {
+    let durationMins = Math.round(customDurationMs / 60000);
+    console.log(`[INTENSIF] Memulai pengecekan intensif ${durationMins} menit untuk matkul: ${targetMatkul}`);
     const browser = await puppeteer.launch({ 
         headless: true,
         args: [
@@ -180,7 +181,7 @@ async function intensiveCheckPortal(client, targetMatkul) {
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         let startTime = Date.now();
-        const MAX_DURATION = 10 * 60 * 1000; // 10 menit
+        const MAX_DURATION = customDurationMs;
         let absenFound = false;
 
         while (Date.now() - startTime < MAX_DURATION && !absenFound) {

@@ -109,9 +109,25 @@ function scheduleTodayClasses(client) {
                 let hour = parseInt(jamParts[0]);
                 let minute = parseInt(jamParts[1]);
 
+                let durationMs = 100 * 60 * 1000; // Default 100 menit jika tidak ada jam_selesai
+                if (jadwal.jam_selesai) {
+                    let endParts = jadwal.jam_selesai.split(':');
+                    if (endParts.length >= 2) {
+                        let endHour = parseInt(endParts[0]);
+                        let endMinute = parseInt(endParts[1]);
+                        let startTotalMins = hour * 60 + minute;
+                        let endTotalMins = endHour * 60 + endMinute;
+                        
+                        if (endTotalMins > startTotalMins) {
+                            durationMs = (endTotalMins - startTotalMins) * 60 * 1000;
+                        }
+                    }
+                }
+
                 let job = cron.schedule(`${minute} ${hour} * * *`, () => {
-                    console.log(`[ALARM] Waktu kuliah ${jadwal.matkul} tiba. Memulai pengecekan absen intensif (10 menit).`);
-                    intensiveCheckPortal(client, jadwal.matkul);
+                    let durationMins = Math.round(durationMs / 60000);
+                    console.log(`[ALARM] Waktu kuliah ${jadwal.matkul} tiba. Memulai pengecekan absen intensif (${durationMins} menit).`);
+                    intensiveCheckPortal(client, jadwal.matkul, durationMs);
                 }, {
                     scheduled: true,
                     timezone: "Asia/Jakarta"
