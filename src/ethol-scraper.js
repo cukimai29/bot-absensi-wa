@@ -317,7 +317,7 @@ async function syncJadwalTugas() {
             apiKeys = [process.env.GEMINI_API_KEY.trim()];
         }
         
-        const ai = new GoogleGenAI({ apiKey: apiKeys[0] });
+
 
         const prompt = `Anda adalah sistem parser JSON.
 Berikut adalah teks kasar dari portal akademik ETHOL milik mahasiswa. Teks ini terbagi menjadi 3 bagian: Beranda, Jadwal Kuliah, dan Daftar Tugas.
@@ -350,10 +350,32 @@ ${jadwalText.substring(0, 5000)}
 === TEKS DAFTAR TUGAS ===
 ${tugasText.substring(0, 5000)}`;
 
-        const response = await ai.models.generateContent({
-            model: "gemini-3.6-flash",
-            contents: prompt,
-        });
+        let response = null;
+        let success = false;
+        let lastError = null;
+
+        for (let i = 0; i < apiKeys.length; i++) {
+            try {
+                const ai = new GoogleGenAI({ apiKey: apiKeys[i] });
+                response = await ai.models.generateContent({
+                    model: "gemini-3.6-flash",
+                    contents: prompt,
+                });
+                success = true;
+                break; // Berhasil, keluar dari loop
+            } catch (err) {
+                lastError = err;
+                if (err.message && err.message.includes("429")) {
+                    console.log(`[AI] Kuota 429 Limit pada Key #${i+1}! ${i+1 < apiKeys.length ? \`Pindah ke API Key cadangan #\${i+2}...\` : 'Semua API Key habis.'}`);
+                } else {
+                    console.log(`[AI] Error tak terduga pada Key #${i+1}: ${err.message}. Mencoba key selanjutnya...`);
+                }
+            }
+        }
+
+        if (!success) {
+            throw lastError || new Error("Semua API Key gagal memproses permintaan.");
+        }
 
         let jsonText = response.text.replace(/```json/gi, '').replace(/```/gi, '').trim();
         const extractedData = JSON.parse(jsonText);
