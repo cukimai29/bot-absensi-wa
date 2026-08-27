@@ -129,20 +129,12 @@ function scheduleTodayClasses(client) {
 function setupCronJobs(client) {
     scheduleTodayClasses(client);
 
-    cron.schedule('1 0 * * *', () => {
-        console.log('[SISTEM] Membaca jadwal baru untuk hari ini...');
-        scheduleTodayClasses(client);
-    }, {
-        scheduled: true,
-        timezone: "Asia/Jakarta"
-    });
-
-    // Jalankan Sinkronisasi Jadwal & Tugas ETHOL (via AI) setiap jam 06:00 dan 12:00
-    cron.schedule('0 6,12 * * *', async () => {
+    cron.schedule('1 0 * * *', async () => {
+        console.log('[SISTEM] Memulai rutinitas tengah malam: Sinkronisasi ETHOL...');
         try {
             await syncJadwalTugas();
-            // Muat ulang jadwal alarm absensi karena ada kemungkinan jadwal baru masuk
-            scheduleTodayClasses(client); 
+            console.log('[SISTEM] Sinkronisasi selesai. Membaca jadwal baru untuk hari ini...');
+            scheduleTodayClasses(client);
         } catch (err) {
             console.error('Gagal menjalankan syncJadwalTugas cron:', err);
         }

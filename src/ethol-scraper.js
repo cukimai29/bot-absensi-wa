@@ -299,7 +299,7 @@ async function syncJadwalTugas() {
         let berandaText = await page.evaluate(() => document.body.innerText);
 
         // 2. Ekstrak Jadwal
-        await page.goto('https://ethol.pens.ac.id/mahasiswa/jadwal-kuliah', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(()=>{});
+        await page.goto('https://ethol.pens.ac.id/mahasiswa/jadwal', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(()=>{});
         await page.waitForNetworkIdle({ idleTime: 500, timeout: 15000 }).catch(() => {}); // Lebih lama untuk jadwal karena data tabel
         let jadwalText = await page.evaluate(() => document.body.innerText);
 
