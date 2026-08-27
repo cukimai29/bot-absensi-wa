@@ -285,26 +285,26 @@ async function syncJadwalTugas() {
         const username = getLastUsedAccount();
         const password = username === process.env.ETHOL_USERNAME ? process.env.ETHOL_PASSWORD : process.env.ETHOL_PASSWORD_2;
         
-        await page.goto('https://login.pens.ac.id/cas/login?service=https%3A%2F%2Fethol.pens.ac.id%2Fapi%2Fauth%2Fcas-callback', { waitUntil: 'networkidle2' });
+        await page.goto('https://login.pens.ac.id/cas/login?service=https%3A%2F%2Fethol.pens.ac.id%2Fapi%2Fauth%2Fcas-callback', { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.type('#username', username);
         await page.type('#password', password);
         await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(e => console.log("Navigation timeout ignored")),
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(e => console.log("Navigation timeout ignored")),
             page.keyboard.press('Enter')
         ]);
         
         // 1. Ekstrak Beranda
-        await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
+        await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(e => console.log("Beranda timeout ignored"));
         await new Promise(r => setTimeout(r, 4000));
         let berandaText = await page.evaluate(() => document.body.innerText);
 
         // 2. Ekstrak Jadwal
-        await page.goto('https://ethol.pens.ac.id/mahasiswa/jadwal-kuliah', { waitUntil: 'networkidle2' }).catch(()=>{});
+        await page.goto('https://ethol.pens.ac.id/mahasiswa/jadwal-kuliah', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(()=>{});
         await new Promise(r => setTimeout(r, 3000));
         let jadwalText = await page.evaluate(() => document.body.innerText);
 
         // 3. Ekstrak Tugas
-        await page.goto('https://ethol.pens.ac.id/mahasiswa/tugas', { waitUntil: 'networkidle2' }).catch(()=>{});
+        await page.goto('https://ethol.pens.ac.id/mahasiswa/tugas', { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(()=>{});
         await new Promise(r => setTimeout(r, 3000));
         let tugasText = await page.evaluate(() => document.body.innerText);
 
