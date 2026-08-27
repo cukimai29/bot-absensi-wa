@@ -1589,7 +1589,6 @@ Waktu saat ini: ${nowStr}
 Data Kelas Saat Ini:
 - Semester: ${db.semester || 1}
 - Minggu Ke: ${db.minggu_ke || 1}
-- Rekap Absensi: ${JSON.stringify(db.jadwal)}
 - Jadwal Kuliah: ${JSON.stringify(db.daftar_jadwal || {})}
 - Daftar Tugas: ${JSON.stringify(db.daftar_tugas || [])}
 - Kas Kelas: ${JSON.stringify(db.kas_kelas || {})}
