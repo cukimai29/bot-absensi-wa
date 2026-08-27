@@ -125,11 +125,45 @@ async function createNulis(teks) {
   return screenshot;
 }
 
-// Inisialisasi AI (Hanya aktif jika GEMINI_API_KEY tersedia di .env)
-let ai = null;
-if (process.env.GEMINI_API_KEY) {
-  ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Inisialisasi AI dengan sistem Multiple API Keys (Fallback)
+let apiKeys = [];
+if (process.env.GEMINI_API_KEYS) {
+  apiKeys = process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(k => k);
+} else if (process.env.GEMINI_API_KEY) {
+  apiKeys = [process.env.GEMINI_API_KEY.trim()];
 }
+
+let currentKeyIndex = 0;
+let ai = null;
+if (apiKeys.length > 0) {
+  ai = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
+}
+
+// Wrapper cerdas untuk generateContent dengan fitur Fallback otomatis jika kena 429
+const generateAIContent = async (params) => {
+  let attempts = 0;
+  let lastError;
+  
+  while (attempts < Math.max(1, apiKeys.length)) {
+    try {
+      if (!ai) ai = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
+      return await ai.models.generateContent(params);
+    } catch (err) {
+      lastError = err;
+      if (err.message && err.message.includes("429") && apiKeys.length > 1) {
+        attempts++;
+        if (attempts < apiKeys.length) {
+          currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+          console.log(`[AI] Kuota 429 limit! Pindah ke API Key cadangan #${currentKeyIndex + 1}...`);
+          ai = new GoogleGenAI({ apiKey: apiKeys[currentKeyIndex] });
+          continue;
+        }
+      }
+      throw err; 
+    }
+  }
+  throw lastError;
+};
 
 // State untuk menyimpan sesi game grup
 const activeGames = {};
@@ -474,7 +508,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         });
       }
 
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent({
         model: "gemini-2.5-flash",
         contents: contents,
       });
@@ -1093,7 +1127,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     const quotedMsg = await msg.getQuotedMessage();
     msg.reply("⏳ AI sedang meringkas pesan ini, mohon tunggu...");
     try {
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent({
         model: "gemini-2.5-flash",
         contents: `Buatkan ringkasan singkat dalam bentuk poin-poin dari teks ini:\n\n${quotedMsg.body}`,
       });
@@ -1112,7 +1146,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     const quotedMsg = await msg.getQuotedMessage();
     msg.reply(`⏳ AI sedang menerjemahkan pesan ini ke bahasa *${lang}*...`);
     try {
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent({
         model: "gemini-2.5-flash",
         contents: `Terjemahkan teks berikut secara natural ke bahasa ${lang}:\n\n${quotedMsg.body}`,
       });
@@ -1230,7 +1264,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     }
     msg.reply("🔮 AI sedang menghitung kecocokan jodoh mereka...");
     try {
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent({
         model: "gemini-2.5-flash",
         contents: `Buatkan ramalan lucu dan absurd ala anak kuliahan tentang kecocokan jodoh untuk dua orang ini: ${target}. Maksimal 3 kalimat pendek yang bikin ngakak.`,
       });
@@ -1254,7 +1288,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
 
     msg.reply("🔥 Mempersiapkan bahan roasting...");
     try {
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent({
         model: "gemini-2.5-flash",
         contents: `Buatkan roasting-an pedas, lucu, dan menohok ala stand-up comedy bahasa indonesia untuk target berikut: ${target}. Jangan terlalu kasar sampai bawa SARA, tapi cukup bikin malu. Maksimal 3 kalimat.`,
       });
@@ -1269,7 +1303,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     let target = msg.body.substring(".gombal".length).trim() || "kamu";
     msg.reply("😘 Sedang merangkai kata-kata manis...");
     try {
-      const response = await ai.models.generateContent({
+      const response = await generateAIContent({
         model: "gemini-2.5-flash",
         contents: `Buatkan satu kalimat gombalan maut yang sangat lucu, receh, dan agak cringe bahasa indonesia untuk: ${target}.`,
       });
@@ -1565,7 +1599,7 @@ ${chatMemory.get(_chatId) ? chatMemory.get(_chatId).join("\n") : "Belum ada chat
 Instruksi: Jawablah pertanyaan user terbaru berdasarkan data di atas (jika relevan) atau tanggapi obrolan mereka.`;
 
       try {
-        const response = await ai.models.generateContent({
+        const response = await generateAIContent({
           model: "gemini-2.5-flash",
           contents: systemPrompt + `\n\nPertanyaan/Pesan User Terbaru:\n${bodyText}`,
         });
