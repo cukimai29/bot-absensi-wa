@@ -289,7 +289,7 @@ async function syncJadwalTugas() {
         await page.type('#username', username);
         await page.type('#password', password);
         await Promise.all([
-            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(e => console.log("Navigation timeout ignored")),
             page.keyboard.press('Enter')
         ]);
         
