@@ -1,6 +1,6 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const readline = require('readline');
-const { processAgentQuery } = require('./src/agents/orchestrator');
+const { processAgentQuery } = require('../src/agents/orchestrator');
 
 console.log(`
 ===========================================================
@@ -14,7 +14,8 @@ Contoh pertanyaan yang bisa dicoba:
 - "besok ada kuliah apa aja ya?"
 - "ada tugas apa yang belum dikerjakan?"
 - "siapa aja yang belum bayar kas minggu ini?"
-- "tambah tugas baru PWEB deskripsi buat makalah deadline 2026-08-30"
+- "sekarang hari apa tanggal berapa dan jam berapa?"
+- "sinkronkan jadwal dari ethol dong"
 
 Ketik 'exit' atau 'keluar' untuk mengakhiri sesi pengujian.
 ===========================================================

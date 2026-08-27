@@ -1,7 +1,7 @@
 const { getScheduleTool, addScheduleTool, deleteScheduleTool } = require('./scheduleTools');
 const { getTasksTool, addTaskTool, deleteTaskTool } = require('./taskTools');
 const { checkKasTool, mapKasContactTool } = require('./kasTools');
-const { checkEtholTool } = require('./etholTools');
+const { checkEtholTool, syncEtholScheduleTool } = require('./etholTools');
 const { getCurrentTimeTool } = require('./generalTools');
 
 /**
@@ -17,6 +17,7 @@ const allTools = {
     checkKas: checkKasTool,
     mapKasContact: mapKasContactTool,
     checkEthol: checkEtholTool,
+    syncEtholSchedule: syncEtholScheduleTool,
     getCurrentTime: getCurrentTimeTool
 };
 
