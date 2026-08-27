@@ -326,9 +326,12 @@ Tugas Anda adalah mengekstrak informasi jadwal dan tugas (khususnya yang berstat
 Format JSON yang Diharapkan:
 {
   "minggu_ke": 1,
-  "jadwal": {
-    "minggu_1": [
-      { "matkul": "Nama Matkul", "hari": "Senin", "jam": "08:00 - 10:00", "ruang": "Ruang A" }
+  "daftar_jadwal": {
+    "senin": [
+      { "matkul": "Nama Matkul", "jam": "08:00" }
+    ],
+    "selasa": [
+      { "matkul": "Nama Matkul", "jam": "10:00" }
     ]
   },
   "daftar_tugas": [
@@ -336,7 +339,7 @@ Format JSON yang Diharapkan:
   ]
 }
 
-Jika informasi minggu_ke tidak ditemukan, asumsikan minggu 1. Ekstrak sebanyak mungkin tugas yang belum selesai.
+Jika informasi minggu_ke tidak ditemukan, asumsikan minggu 1. Ekstrak sebanyak mungkin tugas yang belum selesai. Untuk daftar_jadwal, gunakan nama hari dalam bahasa indonesia huruf kecil sebagai key (senin, selasa, rabu, dst) dan jam format HH:MM.
 
 === TEKS BERANDA ===
 ${berandaText.substring(0, 3000)}
@@ -358,8 +361,8 @@ ${tugasText.substring(0, 5000)}`;
         const { loadData, saveData } = require('./database');
         let db = loadData();
         
-        if (extractedData.jadwal) {
-            db.jadwal = extractedData.jadwal;
+        if (extractedData.daftar_jadwal) {
+            db.daftar_jadwal = extractedData.daftar_jadwal;
         }
         if (extractedData.daftar_tugas) {
             db.daftar_tugas = extractedData.daftar_tugas;
@@ -367,6 +370,8 @@ ${tugasText.substring(0, 5000)}`;
         if (extractedData.minggu_ke) {
             db.minggu_ke = extractedData.minggu_ke;
         }
+        
+        // PENTING: JANGAN PERNAH MENYENTUH db.jadwal KARENA ITU ADALAH REKAP ABSENSI!
         
         saveData(db);
         console.log("[ETHOL SYNC] Sinkronisasi berhasil! Jadwal dan Tugas terbaru telah disimpan ke database.");
