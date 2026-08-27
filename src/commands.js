@@ -509,7 +509,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       }
 
       const response = await generateAIContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: contents,
       });
       msg.reply(`*🤖 Jawaban AI:*\n\n${response.text}`);
@@ -1128,7 +1128,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     msg.reply("⏳ AI sedang meringkas pesan ini, mohon tunggu...");
     try {
       const response = await generateAIContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: `Buatkan ringkasan singkat dalam bentuk poin-poin dari teks ini:\n\n${quotedMsg.body}`,
       });
       msg.reply(`*🤖 Ringkasan AI:*\n\n${response.text}`);
@@ -1147,7 +1147,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     msg.reply(`⏳ AI sedang menerjemahkan pesan ini ke bahasa *${lang}*...`);
     try {
       const response = await generateAIContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: `Terjemahkan teks berikut secara natural ke bahasa ${lang}:\n\n${quotedMsg.body}`,
       });
       msg.reply(`*🤖 Terjemahan AI:*\n\n${response.text}`);
@@ -1265,7 +1265,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     msg.reply("🔮 AI sedang menghitung kecocokan jodoh mereka...");
     try {
       const response = await generateAIContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: `Buatkan ramalan lucu dan absurd ala anak kuliahan tentang kecocokan jodoh untuk dua orang ini: ${target}. Maksimal 3 kalimat pendek yang bikin ngakak.`,
       });
       msg.reply(`*💘 RAMALAN JODOH AI 💘*\n\n${response.text}`);
@@ -1289,7 +1289,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     msg.reply("🔥 Mempersiapkan bahan roasting...");
     try {
       const response = await generateAIContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: `Buatkan roasting-an pedas, lucu, dan menohok ala stand-up comedy bahasa indonesia untuk target berikut: ${target}. Jangan terlalu kasar sampai bawa SARA, tapi cukup bikin malu. Maksimal 3 kalimat.`,
       });
       msg.reply(`*🔥 ROASTING TIME 🔥*\n\n${response.text}`);
@@ -1304,7 +1304,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     msg.reply("😘 Sedang merangkai kata-kata manis...");
     try {
       const response = await generateAIContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: `Buatkan satu kalimat gombalan maut yang sangat lucu, receh, dan agak cringe bahasa indonesia untuk: ${target}.`,
       });
       msg.reply(`*💖 GOMBALAN AI 💖*\n\n${response.text}`);
@@ -1600,7 +1600,7 @@ Instruksi: Jawablah pertanyaan user terbaru berdasarkan data di atas (jika relev
 
       try {
         const response = await generateAIContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.6-flash",
           contents: systemPrompt + `\n\nPertanyaan/Pesan User Terbaru:\n${bodyText}`,
         });
         await chat.clearState();
