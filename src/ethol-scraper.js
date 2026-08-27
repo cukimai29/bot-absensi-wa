@@ -328,10 +328,10 @@ Format JSON yang Diharapkan:
   "minggu_ke": 1,
   "daftar_jadwal": {
     "senin": [
-      { "matkul": "Nama Matkul", "jam": "08:00" }
+      { "matkul": "Nama Matkul", "jam": "08:00", "jam_selesai": "09:40", "ruangan": "SAW-03.08", "dosen": "Nama Dosen" }
     ],
     "selasa": [
-      { "matkul": "Nama Matkul", "jam": "10:00" }
+      { "matkul": "Nama Matkul", "jam": "10:00", "jam_selesai": "12:00", "ruangan": "Online", "dosen": "Nama Dosen" }
     ]
   },
   "daftar_tugas": [
@@ -339,7 +339,7 @@ Format JSON yang Diharapkan:
   ]
 }
 
-Jika informasi minggu_ke tidak ditemukan, asumsikan minggu 1. Ekstrak sebanyak mungkin tugas yang belum selesai. Untuk daftar_jadwal, gunakan nama hari dalam bahasa indonesia huruf kecil sebagai key (senin, selasa, rabu, dst) dan jam format HH:MM.
+Jika informasi minggu_ke tidak ditemukan, asumsikan minggu 1. Ekstrak sebanyak mungkin tugas yang belum selesai. Untuk daftar_jadwal, gunakan nama hari dalam bahasa indonesia huruf kecil sebagai key (senin, selasa, rabu, dst) dan jam format HH:MM. Pastikan mengekstrak dosen, ruangan (jika ada, misal gedung/ruang), dan jam_selesai.
 
 === TEKS BERANDA ===
 ${berandaText.substring(0, 3000)}

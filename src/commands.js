@@ -616,7 +616,10 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
 
     let pesan = `*Jadwal Kuliah Hari ${targetHari.charAt(0).toUpperCase() + targetHari.slice(1)}*\n\n`;
     jadwalHari.forEach((j, i) => {
-      pesan += `${i + 1}. *${j.matkul}*\n   ⏰ ${j.jam}\n   📍 ${j.ruang}\n\n`;
+      let jamStr = j.jam_selesai ? `${j.jam} - ${j.jam_selesai}` : j.jam;
+      let dosenStr = j.dosen ? j.dosen : 'Dosen tidak diketahui';
+      let ruangStr = (j.ruangan && j.ruangan !== 'undefined') ? j.ruangan : 'Online/Belum ditentukan';
+      pesan += `${i + 1}. *${j.matkul}*\n   👨‍🏫 ${dosenStr}\n   ⏰ ${jamStr}\n   📍 ${ruangStr}\n\n`;
     });
     msg.reply(pesan);
   }
