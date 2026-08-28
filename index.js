@@ -6,6 +6,24 @@ const { loadData, saveData } = require('./src/database');
 const { checkPortal, intensiveCheckPortal, syncJadwalTugas } = require('./src/ethol-scraper');
 const { handleMessage } = require('./src/commands');
 
+async function sendPremiumAnnouncement(client, groupId, text) {
+    if (!groupId) return;
+    try {
+        const fakeVerif = {
+            key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: groupId },
+            message: { conversation: "SMARTBOT by RzkyAds" }
+        };
+        let metadata = await client.groupMetadata(groupId);
+        let mentions = metadata.participants.map(p => p.id);
+        await client.sendMessage(groupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
+    } catch (err) {
+        console.error('Gagal mengirim premium announcement:', err);
+        try {
+            await client.sendMessage(groupId, { text: text });
+        } catch (e) {}
+    }
+}
+
 let scheduledJobs = [];
 let isBotStarted = false;
 
@@ -132,8 +150,26 @@ function scheduleTodayClasses(client) {
                     scheduled: true,
                     timezone: "Asia/Jakarta"
                 });
-                
                 scheduledJobs.push(job);
+
+                let siagaTotalMins = hour * 60 + minute - 30;
+                if (siagaTotalMins < 0) siagaTotalMins += 24 * 60;
+                let siagaHour = Math.floor(siagaTotalMins / 60) % 24;
+                let siagaMinute = siagaTotalMins % 60;
+
+                let siagaJob = cron.schedule(`${siagaMinute} ${siagaHour} * * *`, () => {
+                    let greeting = "Pagi";
+                    if (hour >= 11 && hour < 15) greeting = "Siang";
+                    else if (hour >= 15 && hour < 18) greeting = "Sore";
+                    else if (hour >= 18) greeting = "Malam";
+
+                    let msg = `🚨 *SIAGA 1: KELAS SEGERA DIMULAI!* 🚨\n\nSelamat ${greeting} rek! ☕\n30 menit lagi kelas *${jadwal.matkul}* (Jam ${jadwal.jam}) akan segera dimulai.\n\nJangan lupa cuci muka, prepare *device*, dan pantau grup buat absen ya! 🏃‍♂️💨`;
+                    sendPremiumAnnouncement(client, process.env.TARGET_GROUP_ID, msg);
+                }, {
+                    scheduled: true,
+                    timezone: "Asia/Jakarta"
+                });
+                scheduledJobs.push(siagaJob);
                 console.log(`[JADWAL] -> ${jadwal.matkul} dijadwalkan pada ${jadwal.jam}.`);
             }
         });
@@ -154,6 +190,46 @@ function setupCronJobs(client) {
         } catch (err) {
             console.error('Gagal menjalankan syncJadwalTugas cron:', err);
         }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Jakarta"
+    });
+
+    cron.schedule('0 6 * * *', async () => {
+        let data = loadData();
+        const namaHari = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+        let todayStr = new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"});
+        let todayName = namaHari[new Date(todayStr).getDay()];
+
+        let jadwalHariIni = (data.daftar_jadwal && data.daftar_jadwal[todayName]) ? data.daftar_jadwal[todayName] : [];
+        let tugasList = data.daftar_tugas || [];
+        
+        let msg = `🌅 *DAILY MORNING BRIEFING* 🌅\n\nSelamat pagi semuanya! Berikut adalah ringkasan hari ini (*${todayName.toUpperCase()}*):\n\n`;
+        
+        if (jadwalHariIni.length > 0) {
+            msg += `📚 *JADWAL KULIAH HARI INI:*\n`;
+            jadwalHariIni.forEach((j, i) => {
+                let jamStr = j.jam_selesai ? `${j.jam} - ${j.jam_selesai}` : j.jam;
+                let ruangStr = (j.ruangan && j.ruangan !== 'undefined') ? j.ruangan : 'Online/Belum ditentukan';
+                msg += `${i + 1}. *${j.matkul}*\n   ⏰ ${jamStr}\n   📍 ${ruangStr}\n`;
+            });
+            msg += `\n`;
+        } else {
+            msg += `🎉 *Tidak ada jadwal kuliah hari ini!* Waktunya healing atau ngerjain tugas.\n\n`;
+        }
+
+        let tugasBelum = tugasList.filter(t => t.status && t.status.toLowerCase().includes('belum'));
+        if (tugasBelum.length > 0) {
+            msg += `⚠️ *TUGAS BELUM DIKERJAKAN (${tugasBelum.length}):*\n`;
+            tugasBelum.forEach((t, i) => {
+                msg += `${i + 1}. *${t.matkul}* - ${t.judul}\n   ⏳ Deadline: ${t.deadline}\n`;
+            });
+        } else {
+            msg += `✅ *Tidak ada tugas yang belum dikerjakan!* Aman terkendali.\n`;
+        }
+
+        msg += `\nSemangat menjalani hari ini! 🔥`;
+        sendPremiumAnnouncement(client, process.env.TARGET_GROUP_ID, msg);
     }, {
         scheduled: true,
         timezone: "Asia/Jakarta"
