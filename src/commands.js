@@ -748,6 +748,8 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     ".hapus_tugas",
     ".hidetag",
     ".hapusrekap",
+    ".clearabsen",
+    ".syncjadwal"
   ];
   const isCmdAdmin = adminCommands.some((cmd) =>
     msg.body.toLowerCase().startsWith(cmd),
