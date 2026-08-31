@@ -113,6 +113,14 @@ async function checkPortal(client) {
                     if (!hasChildWithPola) {
                         let teks = el.textContent.replace(/\s+/g, ' ').trim();
                         if (teks.includes(pola)) {
+                            let parent = el.closest('div[role="listitem"], .v-list-item, li, a') || el.parentElement.parentElement;
+                            let parentText = parent ? parent.textContent.toLowerCase() : teks.toLowerCase();
+                            
+                            // Abaikan notifikasi dari hari-hari sebelumnya
+                            if (parentText.includes('hari yang lalu') || parentText.includes('kemarin') || parentText.includes('minggu yang lalu') || parentText.includes('bulan yang lalu') || parentText.includes('tahun yang lalu')) {
+                                continue;
+                            }
+
                             let namaMatkul = teks.split(pola)[1].trim();
                             let tanggalHariIni = new Date().toLocaleDateString('id-ID');
                             if (!hasil.find(h => h.matkul === namaMatkul)) {
@@ -236,6 +244,14 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
                         if (!hasChildWithPola) {
                             let teks = el.textContent.replace(/\s+/g, ' ').trim();
                             if (teks.includes(pola)) {
+                                let parent = el.closest('div[role="listitem"], .v-list-item, li, a') || el.parentElement.parentElement;
+                                let parentText = parent ? parent.textContent.toLowerCase() : teks.toLowerCase();
+                                
+                                // Abaikan notifikasi dari hari-hari sebelumnya
+                                if (parentText.includes('hari yang lalu') || parentText.includes('kemarin') || parentText.includes('minggu yang lalu') || parentText.includes('bulan yang lalu') || parentText.includes('tahun yang lalu')) {
+                                    continue;
+                                }
+
                                 let namaMatkul = teks.split(pola)[1].trim();
                                 let tanggalHariIni = new Date().toLocaleDateString('id-ID');
                                 if (!hasil.find(h => h.matkul === namaMatkul)) {
