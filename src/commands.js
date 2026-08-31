@@ -175,7 +175,7 @@ const COOLDOWN_MS = 3000; // 3 detik
 // State untuk menyimpan memori percakapan Agentic (maks 15 pesan per chat)
 const chatMemory = new Map();
 
-async function handleMessage(client, rawMsg) {
+async function handleMessage(client, rawMsg, reloadScheduler = null) {
   if (!rawMsg.message) return;
   const _chatId = rawMsg.key.remoteJid;
   const _senderId = rawMsg.key.participant || rawMsg.key.remoteJid;
@@ -794,6 +794,19 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
           "Belum ada screenshot portal. Tunggu bot mengecek portal terlebih dahulu.",
         );
       }
+    }
+
+    if (msg.body.toLowerCase() === ".syncjadwal") {
+      msg.reply("🔄 Sedang menyinkronkan data dari ETHOL. Proses ini membutuhkan waktu sekitar 1-2 menit. Mohon tunggu...");
+      const { syncJadwalTugas } = require('./ethol-scraper');
+      try {
+        await syncJadwalTugas();
+        if (reloadScheduler) reloadScheduler();
+        msg.reply("✅ Sinkronisasi berhasil! Jadwal dan Tugas terbaru telah disimpan ke database dan alarm kelas hari ini telah diperbarui.");
+      } catch (err) {
+        msg.reply(`❌ Sinkronisasi gagal: ${err.message}`);
+      }
+      return;
     }
 
     if (msg.body.toLowerCase() === ".testnotif") {

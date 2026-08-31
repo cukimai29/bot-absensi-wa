@@ -99,7 +99,7 @@ async function startBot() {
         
         // Handle message
         try {
-            await handleMessage(client, msg);
+            await handleMessage(client, msg, () => scheduleTodayClasses(client));
         } catch (err) {
             console.error("Error processing message:", err);
         }
