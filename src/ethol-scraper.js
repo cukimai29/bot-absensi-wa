@@ -413,14 +413,16 @@ ${tugasText.substring(0, 5000)}`;
         const { loadData, saveData } = require('./database');
         let db = loadData();
         
-        if (extractedData.daftar_jadwal) {
+        if (extractedData.daftar_jadwal && Object.keys(extractedData.daftar_jadwal).length > 0) {
             db.daftar_jadwal = extractedData.daftar_jadwal;
+        } else {
+            console.log("[ETHOL SYNC] Peringatan: AI tidak menemukan jadwal apa pun. Jadwal lama dipertahankan agar aman.");
         }
+        
         if (extractedData.daftar_tugas) {
             db.daftar_tugas = extractedData.daftar_tugas;
         }
 
-        
         // PENTING: JANGAN PERNAH MENYENTUH db.jadwal KARENA ITU ADALAH REKAP ABSENSI!
         
         saveData(db);
