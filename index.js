@@ -291,6 +291,31 @@ function setupCronJobs(client) {
         timezone: "Asia/Jakarta"
     });
 
+    const fakeVerif = {
+        key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: process.env.TARGET_GROUP_ID },
+        message: { conversation: "SMARTBOT by RzkyAds" }
+    };
+
+    async function sendHidetagWithRetry(pesanTeks, logContext, maxRetries = 6) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
+                let participants = metadata.participants.map(p => p.id);
+                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanTeks, mentions: participants }, { quoted: fakeVerif });
+                console.log(`[${logContext}] Berhasil mengirim hidetag.`);
+                return true;
+            } catch (err) {
+                console.error(`[${logContext}] Gagal get chat (Percobaan ${i+1}/${maxRetries}):`, err.message);
+                if (i === maxRetries - 1) {
+                    console.log(`[${logContext}] Mengirim tanpa hidetag sebagai fallback...`);
+                    await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanTeks }, { quoted: fakeVerif }).catch(e => console.error(`[${logContext}] Fallback gagal:`, e.message));
+                    return false;
+                }
+                await new Promise(resolve => setTimeout(resolve, 15000)); // Tunggu 15 detik
+            }
+        }
+    }
+
     cron.schedule('0 7 * * *', async () => {
         let data = loadData();
         let tugas = data.daftar_tugas || [];
@@ -317,39 +342,16 @@ function setupCronJobs(client) {
 
         if (count > 0) {
             let pesanAkhir = `🚨 *REMINDER TUGAS KELAS* 🚨\n\nPerhatian semuanya, ada ${count} tugas yang mendesak untuk segera diselesaikan:\n\n${pesanReminder}\nMohon segera dikerjakan ya! Ketik *.tugas* untuk melihat seluruh daftar tugas.`;
-            
-            try {
-                let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
-                let participants = metadata.participants.map(p => p.id);
-                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: `🔊 *PENGUMUMAN*\n\n${pesanAkhir}`, mentions: participants }, { quoted: fakeVerif });
-            } catch (err) {
-                console.error("Gagal get chat untuk hidetag reminder:", err);
-                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanAkhir }, { quoted: fakeVerif }).catch(console.error);
-            }
-            console.log(`[Pengingat Tugas] Berhasil mengirim peringatan hidetag untuk ${count} tugas.`);
+            await sendHidetagWithRetry(`🔊 *PENGUMUMAN*\n\n${pesanAkhir}`, "Pengingat Tugas");
         }
     }, {
         scheduled: true,
         timezone: "Asia/Jakarta"
     });
 
-    const fakeVerif = {
-        key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: process.env.TARGET_GROUP_ID },
-        message: { conversation: "SMARTBOT by RzkyAds" }
-    };
-
     cron.schedule('0 5 * * *', async () => {
         const pesanSubuh = `🌅 *SELAMAT PAGI SEMUANYA!* 🌅\n\nJangan lupa untuk segera bangun dan melaksanakan sholat subuh bagi yang menjalankan. Awali hari dengan doa agar dilancarkan segala urusannya!\n\n💸 *REMINDER KAS KELAS* 💸\nSekalian ngingetin buat teman-teman yang belum bayar uang kas kelas, yuk segera dilunasi ke bendahara agar keuangan kelas kita tetap sehat dan lancar!`;
-        
-        try {
-            let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
-            let participants = metadata.participants.map(p => p.id);
-            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh, mentions: participants }, { quoted: fakeVerif });
-        } catch (err) {
-            console.error("Gagal get chat untuk hidetag subuh:", err);
-            await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanSubuh }, { quoted: fakeVerif }).catch(console.error);
-        }
-        console.log(`[Pengingat Pagi] Berhasil mengirim hidetag sholat subuh dan kas kelas.`);
+        await sendHidetagWithRetry(pesanSubuh, "Pengingat Pagi");
     }, {
         scheduled: true,
         timezone: "Asia/Jakarta"
