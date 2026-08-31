@@ -578,7 +578,31 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       pesan += `${index + 1}. Matkul: ${item.matkul}\n   Tanggal: ${item.tanggal}\n\n`;
     });
 
-    msg.reply(pesan);
+    const fs = require("fs");
+    const path = require("path");
+    const fileName = `Rekap_Absensi_Minggu_${targetMinggu}.txt`;
+    const filePath = path.join(__dirname, "..", fileName);
+
+    fs.writeFileSync(filePath, pesan);
+
+    try {
+      const media = { 
+        document: require("fs").readFileSync(filePath), 
+        mimetype: "text/plain", 
+        fileName: fileName,
+        caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${targetMinggu}*.`
+      };
+      const options = _isGroup ? { quoted: fakeVerif } : {};
+      await client.sendMessage(msg.from, media, options);
+    } catch (err) {
+      console.error("Gagal mengirim file, mencoba fallback teks biasa:", err);
+      // Fallback: Jika WhatsApp memblokir pengiriman file (error 429), kirim sebagai teks
+      msg.reply(`⚠️ Gagal mengirim file dokumen (sedang terkena limit dari WhatsApp). Berikut adalah rekapnya:\n\n${pesan}`);
+    } finally {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
   }
 
   if (
