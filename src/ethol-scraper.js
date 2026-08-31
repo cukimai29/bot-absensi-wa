@@ -126,7 +126,20 @@ async function checkPortal(client) {
         });
 
         if (daftarAbsenTerbuka && daftarAbsenTerbuka.length > 0) {
+            const { loadData } = require('./database');
+            let dbData = loadData();
+            const namaHari = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+            let todayStr = new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"});
+            let todayName = namaHari[new Date(todayStr).getDay()];
+            let jadwalHariIni = dbData.daftar_jadwal ? (dbData.daftar_jadwal[todayName] || []) : [];
+            let matkulHariIni = jadwalHariIni.map(j => j.matkul.toLowerCase());
+
             for (let absen of daftarAbsenTerbuka) {
+                // Filter: Hanya proses jika matkul ada di jadwal hari ini (mencegah spam notif lama dari minggu lalu)
+                if (!matkulHariIni.some(m => absen.matkul.toLowerCase().includes(m) || m.includes(absen.matkul.toLowerCase()))) {
+                    continue;
+                }
+                
                 let isBaru = catatAbsen(absen.matkul, absen.tanggal);
                 if (isBaru) {
                     await announceAbsen(client, process.env.TARGET_GROUP_ID, absen.matkul, absen.tanggal);
