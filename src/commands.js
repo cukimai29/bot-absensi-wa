@@ -578,30 +578,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       pesan += `${index + 1}. Matkul: ${item.matkul}\n   Tanggal: ${item.tanggal}\n\n`;
     });
 
-    const fs = require("fs");
-    const path = require("path");
-    const fileName = `Rekap_Absensi_Minggu_${targetMinggu}.txt`;
-    const filePath = path.join(__dirname, "..", fileName);
-
-    fs.writeFileSync(filePath, pesan);
-
-    try {
-      const media = { 
-        document: require("fs").readFileSync(filePath), 
-        mimetype: "text/plain", 
-        fileName: fileName,
-        caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${targetMinggu}*.`
-      };
-      const options = _isGroup ? { quoted: fakeVerif } : {};
-      await client.sendMessage(msg.from, media, options);
-    } catch (err) {
-      console.error("Gagal mengirim file:", err);
-      msg.reply("Maaf, terjadi kesalahan saat mengirim file rekap absensi.");
-    } finally {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
+    msg.reply(pesan);
   }
 
   if (
