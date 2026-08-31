@@ -550,24 +550,37 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     msg.reply(`ID Chat ini adalah: ${msg.from}`);
   }
 
-  if (msg.body === ".allabsensi") {
+  if (msg.body.toLowerCase().startsWith(".allabsensi")) {
+    let args = msg.body.trim().split(/\s+/);
     let data = loadData();
-    let mingguIni = `minggu_${data.minggu_ke}`;
+    let targetMinggu = data.minggu_ke;
+    
+    if (args.length > 1) {
+        let parsed = parseInt(args[1]);
+        if (!isNaN(parsed) && parsed > 0 && parsed <= 16) {
+            targetMinggu = parsed;
+        } else {
+            msg.reply("Format salah. Contoh penggunaan: .allabsensi 2");
+            return;
+        }
+    }
+
+    let mingguIni = `minggu_${targetMinggu}`;
     let jadwalMingguIni = data.jadwal[mingguIni] || [];
 
     if (jadwalMingguIni.length === 0) {
-      msg.reply(`Belum ada data absensi untuk Minggu ke-${data.minggu_ke}.`);
+      msg.reply(`Belum ada data absensi untuk Minggu ke-${targetMinggu}.`);
       return;
     }
 
-    let pesan = `REKAP ABSENSI MINGGU KE-${data.minggu_ke}\n\n`;
+    let pesan = `REKAP ABSENSI MINGGU KE-${targetMinggu}\n\n`;
     jadwalMingguIni.forEach((item, index) => {
       pesan += `${index + 1}. Matkul: ${item.matkul}\n   Tanggal: ${item.tanggal}\n\n`;
     });
 
     const fs = require("fs");
     const path = require("path");
-    const fileName = `Rekap_Absensi_Minggu_${data.minggu_ke}.txt`;
+    const fileName = `Rekap_Absensi_Minggu_${targetMinggu}.txt`;
     const filePath = path.join(__dirname, "..", fileName);
 
     fs.writeFileSync(filePath, pesan);
@@ -577,7 +590,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         document: require("fs").readFileSync(filePath), 
         mimetype: "text/plain", 
         fileName: fileName,
-        caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${data.minggu_ke}*.`
+        caption: `📄 Berikut adalah file rekap absensi untuk *Minggu ke-${targetMinggu}*.`
       };
       const options = _isGroup ? { quoted: fakeVerif } : {};
       await client.sendMessage(msg.from, media, options);
@@ -805,6 +818,26 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         msg.reply("✅ Sinkronisasi berhasil! Jadwal dan Tugas terbaru telah disimpan ke database dan alarm kelas hari ini telah diperbarui.");
       } catch (err) {
         msg.reply(`❌ Sinkronisasi gagal: ${err.message}`);
+      }
+      return;
+    }
+
+    if (msg.body.toLowerCase().startsWith(".clearabsen")) {
+      let args = msg.body.trim().split(/\s+/);
+      if (args.length < 2) {
+        msg.reply("Format salah. Contoh penggunaan: .clearabsen 2");
+        return;
+      }
+      let targetMinggu = parseInt(args[1]);
+      if (!isNaN(targetMinggu) && targetMinggu > 0 && targetMinggu <= 16) {
+        let data = loadData();
+        let mingguIni = `minggu_${targetMinggu}`;
+        data.jadwal[mingguIni] = [];
+        const { saveData } = require('./database');
+        saveData(data);
+        msg.reply(`✅ Data absensi untuk Minggu ke-${targetMinggu} telah dikosongkan secara paksa.`);
+      } else {
+        msg.reply("Format salah. Harap masukkan angka minggu yang valid (1-16).");
       }
       return;
     }
