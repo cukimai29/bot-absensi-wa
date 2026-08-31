@@ -390,9 +390,7 @@ ${tugasText.substring(0, 5000)}`;
         if (extractedData.daftar_tugas) {
             db.daftar_tugas = extractedData.daftar_tugas;
         }
-        if (extractedData.minggu_ke) {
-            db.minggu_ke = extractedData.minggu_ke;
-        }
+
         
         // PENTING: JANGAN PERNAH MENYENTUH db.jadwal KARENA ITU ADALAH REKAP ABSENSI!
         

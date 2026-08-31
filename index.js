@@ -196,40 +196,44 @@ function setupCronJobs(client) {
     });
 
     cron.schedule('0 6 * * *', async () => {
-        let data = loadData();
-        const namaHari = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
-        let todayStr = new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"});
-        let todayName = namaHari[new Date(todayStr).getDay()];
+        try {
+            let data = loadData();
+            const namaHari = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+            let todayStr = new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"});
+            let todayName = namaHari[new Date(todayStr).getDay()];
 
-        let jadwalHariIni = (data.daftar_jadwal && data.daftar_jadwal[todayName]) ? data.daftar_jadwal[todayName] : [];
-        let tugasList = data.daftar_tugas || [];
-        
-        let msg = `🌅 *DAILY MORNING BRIEFING* 🌅\n\nSelamat pagi semuanya! Berikut adalah ringkasan hari ini (*${todayName.toUpperCase()}*):\n\n`;
-        
-        if (jadwalHariIni.length > 0) {
-            msg += `📚 *JADWAL KULIAH HARI INI:*\n`;
-            jadwalHariIni.forEach((j, i) => {
-                let jamStr = j.jam_selesai ? `${j.jam} - ${j.jam_selesai}` : j.jam;
-                let ruangStr = (j.ruangan && j.ruangan !== 'undefined') ? j.ruangan : 'Online/Belum ditentukan';
-                msg += `${i + 1}. *${j.matkul}*\n   ⏰ ${jamStr}\n   📍 ${ruangStr}\n`;
-            });
-            msg += `\n`;
-        } else {
-            msg += `🎉 *Tidak ada jadwal kuliah hari ini!* Waktunya healing atau ngerjain tugas.\n\n`;
+            let jadwalHariIni = (data.daftar_jadwal && data.daftar_jadwal[todayName]) ? data.daftar_jadwal[todayName] : [];
+            let tugasList = data.daftar_tugas || [];
+            
+            let msg = `🌅 *DAILY MORNING BRIEFING* 🌅\n\nSelamat pagi semuanya! Berikut adalah ringkasan hari ini (*${todayName.toUpperCase()}*):\n\n`;
+            
+            if (jadwalHariIni.length > 0) {
+                msg += `📚 *JADWAL KULIAH HARI INI:*\n`;
+                jadwalHariIni.forEach((j, i) => {
+                    let jamStr = j.jam_selesai ? `${j.jam} - ${j.jam_selesai}` : j.jam;
+                    let ruangStr = (j.ruangan && j.ruangan !== 'undefined') ? j.ruangan : 'Online/Belum ditentukan';
+                    msg += `${i + 1}. *${j.matkul}*\n   ⏰ ${jamStr}\n   📍 ${ruangStr}\n`;
+                });
+                msg += `\n`;
+            } else {
+                msg += `🎉 *Tidak ada jadwal kuliah hari ini!* Waktunya healing atau ngerjain tugas.\n\n`;
+            }
+
+            let tugasBelum = tugasList.filter(t => t.status && typeof t.status === 'string' && t.status.toLowerCase().includes('belum'));
+            if (tugasBelum.length > 0) {
+                msg += `⚠️ *TUGAS BELUM DIKERJAKAN (${tugasBelum.length}):*\n`;
+                tugasBelum.forEach((t, i) => {
+                    msg += `${i + 1}. *${t.matkul}* - ${t.judul}\n   ⏳ Deadline: ${t.deadline}\n`;
+                });
+            } else {
+                msg += `✅ *Tidak ada tugas yang belum dikerjakan!* Aman terkendali.\n`;
+            }
+
+            msg += `\nSemangat menjalani hari ini! 🔥`;
+            sendPremiumAnnouncement(client, process.env.TARGET_GROUP_ID, msg);
+        } catch (err) {
+            console.error('Gagal mengirim Daily Morning Briefing:', err);
         }
-
-        let tugasBelum = tugasList.filter(t => t.status && t.status.toLowerCase().includes('belum'));
-        if (tugasBelum.length > 0) {
-            msg += `⚠️ *TUGAS BELUM DIKERJAKAN (${tugasBelum.length}):*\n`;
-            tugasBelum.forEach((t, i) => {
-                msg += `${i + 1}. *${t.matkul}* - ${t.judul}\n   ⏳ Deadline: ${t.deadline}\n`;
-            });
-        } else {
-            msg += `✅ *Tidak ada tugas yang belum dikerjakan!* Aman terkendali.\n`;
-        }
-
-        msg += `\nSemangat menjalani hari ini! 🔥`;
-        sendPremiumAnnouncement(client, process.env.TARGET_GROUP_ID, msg);
     }, {
         scheduled: true,
         timezone: "Asia/Jakarta"
@@ -281,7 +285,7 @@ function setupCronJobs(client) {
 
         saveData(data);
 
-        client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesan }, { quoted: fakeVerif }).catch(err => console.error("Gagal mengirim pengumuman ganti minggu:", err));
+        sendPremiumAnnouncement(client, process.env.TARGET_GROUP_ID, pesan);
     }, {
         scheduled: true,
         timezone: "Asia/Jakarta"
