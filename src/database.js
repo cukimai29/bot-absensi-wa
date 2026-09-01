@@ -37,4 +37,5 @@ function catatAbsen(matkul, tanggal) {
     return false;
 }
 
-module.exports = { loadData, saveData, catatAbsen };
+function hapusAbsen(matkul) { let data = loadData(); let mingguIni = "minggu_" + data.minggu_ke; if (!data.jadwal[mingguIni]) return false; let index = data.jadwal[mingguIni].findIndex(a => a.matkul.toLowerCase().includes(matkul.toLowerCase())); if (index !== -1) { data.jadwal[mingguIni].splice(index, 1); saveData(data); return true; } return false; } module.exports = { loadData, saveData, catatAbsen, hapusAbsen };
+

@@ -749,7 +749,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     ".hapus_tugas",
     ".hidetag",
     ".hapusrekap",
-    ".clearabsen",
+    ".clearabsen", ".hapusabsen",
     ".syncjadwal"
   ];
   const isCmdAdmin = adminCommands.some((cmd) =>
@@ -825,7 +825,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       return;
     }
 
-    if (msg.body.toLowerCase().startsWith(".clearabsen")) {
+    if (msg.body.toLowerCase().startsWith(".hapusabsen")) { let parts = msg.body.trim().split(" "); if (parts.length < 2) { msg.reply("Format salah. Contoh penggunaan: .hapusabsen Workshop Embedded"); return; } let targetMatkul = parts.slice(1).join(" "); const { hapusAbsen } = require("./database"); let sukses = hapusAbsen(targetMatkul); if (sukses) { msg.reply(`? Berhasil menghapus rekaman absensi untuk matkul yang mengandung kata "${targetMatkul}" dari minggu ini.`); } else { msg.reply(`? Gagal menghapus. Matkul "${targetMatkul}" tidak ditemukan pada rekaman minggu ini.`); } } if (msg.body.toLowerCase().startsWith(".clearabsen")) {
       let args = msg.body.trim().split(/\s+/);
       if (args.length < 2) {
         msg.reply("Format salah. Contoh penggunaan: .clearabsen 2");
@@ -1671,3 +1671,4 @@ Instruksi: Jawablah pertanyaan user terbaru berdasarkan data di atas (jika relev
 }
 
 module.exports = { handleMessage };
+
