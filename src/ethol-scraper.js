@@ -17,18 +17,28 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
         message: { conversation: "SMARTBOT by RzkyAds" }
     };
 
-    try {
-        let text = `🚨 *ATTENTION PLEASE!* 🚨\n\nAbsensi untuk matkul *${matkul}* udah dibuka nih di ETHOL! 🔥\n\nBuruan diabsen yaa kawan-kawan, jangan sampai lupa apalagi nunggu mepet! Ingat, alpha menumpuk = SP di depan mata! 💀🏃‍♂️💨\n\n📅 Tanggal: ${tanggal}`;
-        let metadata = await client.groupMetadata(groupId);
-        let mentions = metadata.participants.map(p => p.id);
-
-        await client.sendMessage(groupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
-    } catch (err) {
-        console.error('Gagal mengirim pengumuman absen dengan mentions:', err);
+    let text = `🚨 *ATTENTION PLEASE!* 🚨\n\nAbsensi untuk matkul *${matkul}* udah dibuka nih di ETHOL! 🔥\n\nBuruan diabsen yaa kawan-kawan, jangan sampai lupa apalagi nunggu mepet! Ingat, alpha menumpuk = SP di depan mata! 💀🏃‍♂️💨\n\n📅 Tanggal: ${tanggal}`;
+    
+    let maxRetries = 6;
+    for (let i = 0; i < maxRetries; i++) {
         try {
-            let text = `🚨 *ATTENTION PLEASE!* 🚨\n\nAbsensi untuk matkul *${matkul}* udah dibuka nih di ETHOL! 🔥\n\nBuruan diabsen yaa kawan-kawan, jangan sampai lupa apalagi nunggu mepet! Ingat, alpha menumpuk = SP di depan mata! 💀🏃‍♂️💨\n\n📅 Tanggal: ${tanggal}`;
-            await client.sendMessage(groupId, { text: text }, { quoted: fakeVerif });
-        } catch(e) {}
+            let metadata = await client.groupMetadata(groupId);
+            let mentions = metadata.participants.map(p => p.id);
+            await client.sendMessage(groupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
+            return; // Berhasil, keluar dari fungsi
+        } catch (err) {
+            console.error(`[announceAbsen] Gagal mengirim pengumuman absen (Attempt ${i+1}/${maxRetries}):`, err.message);
+            if (i === maxRetries - 1) {
+                console.log("[announceAbsen] Mencoba kirim absen tanpa hidetag sebagai fallback...");
+                try {
+                    await client.sendMessage(groupId, { text: text }, { quoted: fakeVerif });
+                } catch(e) {
+                    console.error("[announceAbsen] Gagal total mengirim absen:", e.message);
+                }
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 15000)); // Tunggu 15 detik sebelum retry
+        }
     }
 }
 
