@@ -83,10 +83,16 @@ async function checkPortal(client) {
 
         await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
 
+        try {
+            // Tunggu secara eksplisit hingga tombol lonceng muncul (maksimal 30 detik)
+            await page.waitForSelector('button[aria-label*="otifikasi" i]', { timeout: 30000 });
+        } catch (e) {
+            console.log("Tombol lonceng tidak kunjung muncul, mungkin gagal login atau server lag.");
+        }
+
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         try {
-            // Gunakan native Puppeteer click untuk semua tombol lonceng (menghindari error jika salah satu tersembunyi di mobile/desktop)
             const bellButtons = await page.$$('button[aria-label*="otifikasi" i]');
             if (bellButtons.length > 0) {
                 for (let btn of bellButtons) {
@@ -217,6 +223,11 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
         ]);
 
         await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
+        
+        try {
+            await page.waitForSelector('button[aria-label*="otifikasi" i]', { timeout: 30000 });
+        } catch(e) {}
+        
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         let startTime = Date.now();
@@ -226,6 +237,11 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
         while (Date.now() - startTime < MAX_DURATION && !absenFound) {
             console.log(`[INTENSIF] Me-refresh halaman portal...`);
             await page.reload({ waitUntil: 'networkidle2' });
+            
+            try {
+                await page.waitForSelector('button[aria-label*="otifikasi" i]', { timeout: 30000 });
+            } catch(e) {}
+            
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             try {
