@@ -77,7 +77,9 @@ async function checkPortal(client) {
         await page.type('#password', password);
 
         await Promise.all([
-            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {
+                console.log("Login form lambat merespons, mencoba memaksa masuk ke dashboard...");
+            }),
             page.keyboard.press('Enter')
         ]);
 
@@ -218,7 +220,9 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
         await page.type('#password', password);
 
         await Promise.all([
-            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {
+                console.log("[INTENSIF] Login form lambat merespons, mencoba memaksa masuk ke dashboard...");
+            }),
             page.keyboard.press('Enter')
         ]);
 
