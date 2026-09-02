@@ -75,7 +75,8 @@ async function startBot() {
             const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
             console.log('Koneksi terputus, reconnecting:', shouldReconnect);
             if (shouldReconnect) {
-                startBot();
+                console.log('Mematikan proses agar direstart bersih oleh PM2...');
+                process.exit(1);
             } else {
                 console.log('Logged out dari WhatsApp, hapus folder session dan jalankan ulang untuk scan QR.');
             }

@@ -25,21 +25,23 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
             let metadata = await client.groupMetadata(groupId);
             let mentions = metadata.participants.map(p => p.id);
             await client.sendMessage(groupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
-            return; // Berhasil, keluar dari fungsi
+            return true; // Berhasil
         } catch (err) {
             console.error(`[announceAbsen] Gagal mengirim pengumuman absen (Attempt ${i+1}/${maxRetries}):`, err.message);
             if (i === maxRetries - 1) {
                 console.log("[announceAbsen] Mencoba kirim absen tanpa hidetag sebagai fallback...");
                 try {
                     await client.sendMessage(groupId, { text: text }, { quoted: fakeVerif });
+                    return true;
                 } catch(e) {
                     console.error("[announceAbsen] Gagal total mengirim absen:", e.message);
+                    return false;
                 }
-                return;
             }
             await new Promise(resolve => setTimeout(resolve, 15000)); // Tunggu 15 detik sebelum retry
         }
     }
+    return false;
 }
 
 async function checkPortal(client) {
@@ -160,8 +162,14 @@ async function checkPortal(client) {
                 
                 let isBaru = catatAbsen(absen.matkul, absen.tanggal);
                 if (isBaru) {
-                    await announceAbsen(client, process.env.TARGET_GROUP_ID, absen.matkul, absen.tanggal);
-                    console.log(`Pengumuman absen ${absen.matkul} berhasil dikirim.`);
+                    let sukses = await announceAbsen(client, process.env.TARGET_GROUP_ID, absen.matkul, absen.tanggal);
+                    if (sukses) {
+                        console.log(`Pengumuman absen ${absen.matkul} berhasil dikirim.`);
+                    } else {
+                        console.log(`Gagal total mengirim absen ${absen.matkul}, membatalkan pencatatan di database agar bisa dicoba lagi.`);
+                        const { hapusAbsen } = require('./database');
+                        hapusAbsen(absen.matkul);
+                    }
                 }
             }
         } else {
@@ -278,9 +286,15 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
                 for (let absen of daftarAbsenTerbuka) {
                     let isBaru = catatAbsen(absen.matkul, absen.tanggal);
                     if (isBaru) {
-                        await announceAbsen(client, process.env.TARGET_GROUP_ID, absen.matkul, absen.tanggal);
-                        console.log(`[INTENSIF] Pengumuman absen ${absen.matkul} berhasil dikirim!`);
-                        absenFound = true; 
+                        let sukses = await announceAbsen(client, process.env.TARGET_GROUP_ID, absen.matkul, absen.tanggal);
+                        if (sukses) {
+                            console.log(`[INTENSIF] Pengumuman absen ${absen.matkul} berhasil dikirim!`);
+                            absenFound = true; 
+                        } else {
+                            console.log(`[INTENSIF] Gagal total mengirim absen ${absen.matkul}, membatalkan pencatatan agar bisa dicoba lagi.`);
+                            const { hapusAbsen } = require('./database');
+                            hapusAbsen(absen.matkul);
+                        }
                     }
                 }
             } else {
