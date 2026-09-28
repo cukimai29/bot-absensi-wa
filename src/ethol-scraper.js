@@ -133,8 +133,19 @@ async function checkPortal(client) {
                     if (!hasChildWithPola) {
                         let teks = el.textContent.replace(/\s+/g, ' ').trim();
                         if (teks.includes(pola)) {
-                            let parent = el.closest('div[role="listitem"], .v-list-item, li, a') || el.parentElement.parentElement;
-                            let parentText = parent ? parent.textContent.toLowerCase() : teks.toLowerCase();
+                            // Walk up the DOM untuk mencari teks waktu (menghindari struktur DOM yang memisahkan teks dan waktu)
+                            let currentEl = el;
+                            let parentText = teks.toLowerCase();
+                            let attempts = 0;
+                            while (currentEl && currentEl !== document.body && attempts < 6) {
+                                let txt = currentEl.textContent.toLowerCase();
+                                if (txt.includes('lalu') || txt.includes('kemarin') || txt.includes('hari') || txt.includes('jam') || txt.includes('menit')) {
+                                    parentText = txt;
+                                    break;
+                                }
+                                currentEl = currentEl.parentElement;
+                                attempts++;
+                            }
                             
                             // Abaikan notifikasi dari hari-hari sebelumnya
                             if (parentText.includes('hari yang lalu') || parentText.includes('kemarin') || parentText.includes('minggu yang lalu') || parentText.includes('bulan yang lalu') || parentText.includes('tahun yang lalu')) {
@@ -282,9 +293,20 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
                         if (!hasChildWithPola) {
                             let teks = el.textContent.replace(/\s+/g, ' ').trim();
                             if (teks.includes(pola)) {
-                                let parent = el.closest('div[role="listitem"], .v-list-item, li, a') || el.parentElement.parentElement;
-                                let parentText = parent ? parent.textContent.toLowerCase() : teks.toLowerCase();
-                                
+                                // Walk up the DOM untuk mencari teks waktu
+                                let currentEl = el;
+                                let parentText = teks.toLowerCase();
+                                let attempts = 0;
+                                while (currentEl && currentEl !== document.body && attempts < 6) {
+                                    let txt = currentEl.textContent.toLowerCase();
+                                    if (txt.includes('lalu') || txt.includes('kemarin') || txt.includes('hari') || txt.includes('jam') || txt.includes('menit')) {
+                                        parentText = txt;
+                                        break;
+                                    }
+                                    currentEl = currentEl.parentElement;
+                                    attempts++;
+                                }
+
                                 // Abaikan notifikasi dari hari-hari sebelumnya
                                 if (parentText.includes('hari yang lalu') || parentText.includes('kemarin') || parentText.includes('minggu yang lalu') || parentText.includes('bulan yang lalu') || parentText.includes('tahun yang lalu')) {
                                     continue;
