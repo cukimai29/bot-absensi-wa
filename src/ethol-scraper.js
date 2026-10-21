@@ -1,20 +1,85 @@
+const fs = require('fs');
 const puppeteer = require('puppeteer');
 const { catatAbsen } = require('./database');
 
 const PUPPETEER_LAUNCH_TIMEOUT = Number(process.env.PUPPETEER_LAUNCH_TIMEOUT || 60000);
 const PUPPETEER_PROTOCOL_TIMEOUT = Number(process.env.PUPPETEER_PROTOCOL_TIMEOUT || 120000);
+const MIN_FREE_MEMORY_MB = Number(process.env.MIN_FREE_MEMORY_MB || 300);
+
+const activeBrowsers = new Set();
+let scraperBusy = false;
+
+function getAvailableMemoryMB() {
+    try {
+        const meminfo = fs.readFileSync('/proc/meminfo', 'utf8');
+        const match = meminfo.match(/^MemAvailable:\s+(\d+)\s+kB/m);
+        return match ? Math.floor(Number(match[1]) / 1024) : null;
+    } catch (err) {
+        return null;
+    }
+}
+
+function acquireScraperLock(taskName) {
+    if (scraperBusy) {
+        console.log(`[SCRAPER] ${taskName} dilewati: tugas scraping lain masih berjalan.`);
+        return false;
+    }
+    scraperBusy = true;
+    return true;
+}
+
+function releaseScraperLock() {
+    scraperBusy = false;
+}
+
+async function closeBrowser(browser) {
+    if (!browser) return;
+    activeBrowsers.delete(browser);
+
+    try {
+        await Promise.race([
+            browser.close(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout menutup browser')), 15000))
+        ]);
+    } catch (err) {
+        console.error('[BROWSER] Gagal menutup browser:', err.message);
+    }
+}
+
+async function closeAllBrowsers() {
+    const browsers = Array.from(activeBrowsers);
+    activeBrowsers.clear();
+    await Promise.allSettled(browsers.map((browser) => closeBrowser(browser)));
+}
 
 async function launchBrowser(overrides = {}) {
+    const availableMb = getAvailableMemoryMB();
+    if (availableMb !== null && availableMb < MIN_FREE_MEMORY_MB) {
+        throw new Error(`RAM tersedia hanya ${availableMb} MB (minimum ${MIN_FREE_MEMORY_MB} MB). Chrome tidak diluncurkan agar tidak OOM.`);
+    }
+
     const launchOptions = {
         headless: true,
         timeout: PUPPETEER_LAUNCH_TIMEOUT,
         protocolTimeout: PUPPETEER_PROTOCOL_TIMEOUT,
+        defaultViewport: { width: 800, height: 600 },
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-breakpad',
+            '--disable-component-update',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--mute-audio',
+            '--no-first-run',
+            '--renderer-process-limit=2',
+            '--blink-settings=imagesEnabled=false',
+            '--disable-features=Translate,BackForwardCache,AcceptCHFrame,MediaRouter,OptimizationHints'
         ],
         ...overrides
     };
@@ -23,7 +88,10 @@ async function launchBrowser(overrides = {}) {
         launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     }
 
-    return puppeteer.launch(launchOptions);
+    const browser = await puppeteer.launch(launchOptions);
+    activeBrowsers.add(browser);
+    browser.on('disconnected', () => activeBrowsers.delete(browser));
+    return browser;
 }
 
 let useSecondAccount = false;
@@ -70,11 +138,14 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
 }
 
 async function checkPortal(client) {
+    if (!acquireScraperLock('Cek portal')) return;
+
     let browser;
     try {
         browser = await launchBrowser();
     } catch (err) {
         console.error('[PORTAL] Gagal membuka browser:', err.message);
+        releaseScraperLock();
         return;
     }
 
@@ -84,7 +155,8 @@ async function checkPortal(client) {
         page.setDefaultNavigationTimeout(120000);
     } catch (err) {
         console.error('[PORTAL] Gagal membuka halaman browser:', err.message);
-        await browser.close().catch(() => {});
+        await closeBrowser(browser);
+        releaseScraperLock();
         return;
     }
 
@@ -227,11 +299,14 @@ async function checkPortal(client) {
     } catch (error) {
         console.error('Terjadi kesalahan saat mengecek portal:', error);
     } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeBrowser(browser);
+        releaseScraperLock();
     }
 }
 
 async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 * 60 * 1000) {
+    if (!acquireScraperLock('Cek absen intensif')) return;
+
     let durationMins = Math.round(customDurationMs / 60000);
     console.log(`[INTENSIF] Memulai pengecekan intensif ${durationMins} menit untuk matkul: ${targetMatkul}`);
 
@@ -240,6 +315,7 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
         browser = await launchBrowser();
     } catch (err) {
         console.error('[INTENSIF] Gagal membuka browser:', err.message);
+        releaseScraperLock();
         return;
     }
 
@@ -249,7 +325,8 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
         page.setDefaultNavigationTimeout(120000);
     } catch (err) {
         console.error('[INTENSIF] Gagal membuka halaman browser:', err.message);
-        await browser.close().catch(() => {});
+        await closeBrowser(browser);
+        releaseScraperLock();
         return;
     }
 
@@ -390,7 +467,8 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
     } catch (error) {
         console.error('[INTENSIF] Terjadi kesalahan saat mengecek portal:', error);
     } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeBrowser(browser);
+        releaseScraperLock();
         console.log(`[INTENSIF] Pengecekan intensif selesai, browser ditutup.`);
     }
 }
@@ -399,9 +477,12 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
 const { GoogleGenAI } = require("@google/genai");
 
 async function syncJadwalTugas() {
+    if (!acquireScraperLock('Sinkronisasi ETHOL')) return;
+
     console.log("[ETHOL SYNC] Memulai sinkronisasi Jadwal & Tugas...");
     if (!process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEYS) {
         console.log("[ETHOL SYNC] Dibatalkan: API Key Gemini tidak ditemukan.");
+        releaseScraperLock();
         return;
     }
 
@@ -410,6 +491,7 @@ async function syncJadwalTugas() {
         browser = await launchBrowser();
     } catch (err) {
         console.error('[ETHOL SYNC] Gagal membuka browser:', err.message);
+        releaseScraperLock();
         return;
     }
 
@@ -534,8 +616,9 @@ ${tugasText.substring(0, 5000)}`;
     } catch (err) {
         console.error("[ETHOL SYNC] Gagal melakukan sinkronisasi:", err);
     } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeBrowser(browser);
+        releaseScraperLock();
     }
 }
 
-module.exports = { checkPortal, announceAbsen, getLastUsedAccount, intensiveCheckPortal, syncJadwalTugas };
+module.exports = { checkPortal, announceAbsen, getLastUsedAccount, intensiveCheckPortal, syncJadwalTugas, closeAllBrowsers };

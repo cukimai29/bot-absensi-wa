@@ -1,10 +1,11 @@
 const path = require('path');
+const { execSync } = require('child_process');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeInMemoryStore } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const cron = require('node-cron');
 const { loadData, saveData } = require('./src/database');
-const { checkPortal, intensiveCheckPortal, syncJadwalTugas } = require('./src/ethol-scraper');
+const { checkPortal, intensiveCheckPortal, syncJadwalTugas, closeAllBrowsers } = require('./src/ethol-scraper');
 const { handleMessage } = require('./src/commands');
 
 async function sendPremiumAnnouncement(client, groupId, text) {
@@ -27,6 +28,29 @@ async function sendPremiumAnnouncement(client, groupId, text) {
 
 let scheduledJobs = [];
 let isBotStarted = false;
+let isShuttingDown = false;
+
+function cleanupOrphanedChrome() {
+    if (process.platform !== 'linux') return;
+
+    try {
+        execSync("pkill -f '[p]uppeteer_dev_chrome_profile' || true", { stdio: 'ignore' });
+        console.log('[SISTEM] Membersihkan proses Chrome sisa (jika ada).');
+    } catch (err) {
+        // pkill tidak tersedia atau tidak ada proses Chrome; abaikan.
+    }
+}
+
+async function gracefulShutdown(signal) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log(`[SISTEM] Menerima ${signal}. Menutup browser dan proses...`);
+    await closeAllBrowsers();
+    process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Store to keep track of contacts
 const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) })
@@ -106,6 +130,8 @@ async function requestPairingLogin(client, phoneNumber) {
 }
 
 async function startBot() {
+    cleanupOrphanedChrome();
+
     const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
@@ -161,8 +187,12 @@ async function startBot() {
             console.log(`Koneksi terputus (status ${statusCode ?? '-'}): ${errorMessage}`);
             console.log('Reconnecting:', shouldReconnect);
             if (shouldReconnect) {
-                console.log('Mematikan proses agar direstart bersih oleh PM2...');
-                process.exit(1);
+                if (isShuttingDown) return;
+                isShuttingDown = true;
+                console.log('Menutup browser dan mematikan proses agar direstart bersih oleh PM2...');
+                closeAllBrowsers()
+                    .catch(() => {})
+                    .finally(() => process.exit(1));
             } else {
                 console.log('[LOGIN] Sesi ditolak WhatsApp (logged out / nomor diblokir).');
                 console.log('[LOGIN] Hapus sesi lama dengan "npm run reset-session", lalu restart bot.');
