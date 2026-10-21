@@ -12,6 +12,14 @@ const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
 
+function isButtonMenuEnabledForChat(chatId) {
+  const enabled = (process.env.ENABLE_BUTTONS || "").trim().toLowerCase() === "true";
+  if (!enabled) return false;
+
+  const testGroup = (process.env.BUTTONS_TEST_GROUP_ID || "").trim();
+  return !testGroup || testGroup === chatId;
+}
+
 async function createMeme(base64Image, mimetype, topText, bottomText) {
   const puppeteer = require("puppeteer");
   const browser = await puppeteer.launch({
@@ -201,6 +209,12 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
   const _chatId = rawMsg.key.remoteJid;
   const _senderId = rawMsg.key.participant || rawMsg.key.remoteJid;
   const _isGroup = _chatId.endsWith('@g.us');
+  const isInteractiveResponse = !!(
+    rawMsg.message.interactiveResponseMessage ||
+    rawMsg.message.buttonsResponseMessage ||
+    rawMsg.message.listResponseMessage ||
+    rawMsg.message.templateButtonReplyMessage
+  );
 
   let bodyText = '';
   if (rawMsg.message) {
@@ -217,6 +231,10 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
         try { bodyText = JSON.parse(paramsJson).id; } catch (e) { }
       }
     }
+  }
+
+  if (isInteractiveResponse) {
+    console.log(`[BUTTONS] Respons tombol dari ${_senderId}: ${bodyText || "(kosong)"}`);
   }
 
   // Simpan pesan ke memori pasif
@@ -237,8 +255,8 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
   // Cek apakah ini sebuah perintah kaku (dimulai dengan .)
   const isCommand = bodyText.startsWith('.');
   
-  // Anti-Spam Check
-  if (isCommand) {
+  // Anti-Spam Check (respons tombol/list tidak perlu cooldown)
+  if (isCommand && !isInteractiveResponse) {
     const now = Date.now();
     const lastTime = userCooldowns.get(_senderId) || 0;
     
@@ -430,7 +448,8 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
     msg.reply("Waalaikumsalam");
   }
 
-  if (msg.body.toLowerCase() === ".menu" || msg.body.toLowerCase() === ".help") {
+  const isMenuCommand = msg.body.toLowerCase() === ".menu";
+  if (isMenuCommand || msg.body.toLowerCase() === ".help") {
     const menuPesan = `🤖 *MENU SMARTBOT ABSENSI* 🤖
 
 *📚 PRODUKTIVITAS & HIBURAN*
@@ -475,7 +494,38 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
 33. *.resetbot <Semester>*
 
 _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap sore!_`;
-    await msg.reply(menuPesan);
+
+    if (isMenuCommand && isButtonMenuEnabledForChat(msg.from)) {
+      try {
+        console.log(`[BUTTONS] Mengirim menu tombol ke ${msg.from}`);
+        await msg.reply({
+          interactiveMessage: {
+            header: "🤖 SMARTBOT ABSENSI",
+            title: `Halo! Pilih menu cepat di bawah ini, atau ketik perintahnya langsung:\n\n• *.jadwal* — jadwal kuliah\n• *.tugas* — daftar tugas\n• *.help* — menu lengkap`,
+            footer: "SMARTBOT by RzkyAds",
+            buttons: [
+              {
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({ display_text: "📚 Jadwal", id: ".jadwal" }),
+              },
+              {
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({ display_text: "📝 Tugas", id: ".tugas" }),
+              },
+              {
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({ display_text: "📋 Menu Lengkap", id: ".help" }),
+              },
+            ],
+          },
+        });
+      } catch (err) {
+        console.error(`[BUTTONS] Gagal mengirim menu tombol: ${err.message}. Fallback ke teks.`);
+        await msg.reply(menuPesan);
+      }
+    } else {
+      await msg.reply(menuPesan);
+    }
   }
 
   if (msg.body.toLowerCase().startsWith(".tanya")) {
