@@ -16,6 +16,14 @@ function isSafeModeEnabled() {
   return (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
 }
 
+function isCommandAllowedInChat(chatId) {
+  const raw = (process.env.COMMAND_ALLOWED_GROUPS || "").trim();
+  if (!raw) return true;
+
+  const allowed = raw.split(",").map((id) => id.trim()).filter(Boolean);
+  return allowed.includes(chatId);
+}
+
 function getMenuStyle() {
   const style = (process.env.MENU_STYLE || "buttons").trim().toLowerCase();
   return style === "list" || style === "single_select" ? "list" : "buttons";
@@ -354,6 +362,11 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
   const _chatId = rawMsg.key.remoteJid;
   const _senderId = rawMsg.key.participant || rawMsg.key.remoteJid;
   const _isGroup = _chatId.endsWith('@g.us');
+
+  if (_isGroup && !isCommandAllowedInChat(_chatId)) {
+    return;
+  }
+
   const isInteractiveResponse = !!(
     rawMsg.message.interactiveResponseMessage ||
     rawMsg.message.buttonsResponseMessage ||
