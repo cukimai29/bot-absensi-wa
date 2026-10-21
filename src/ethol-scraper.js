@@ -559,7 +559,7 @@ Format JSON yang Diharapkan:
     ]
   },
   "daftar_tugas": [
-    { "matkul": "Nama Matkul", "judul": "Judul Tugas", "deadline": "2026-08-30 23:59", "status": "Belum Dikerjakan" }
+    { "matkul": "Nama Matkul", "deskripsi": "Deskripsi/Judul Tugas", "deadline": "2026-08-30 23:59", "status": "Belum Dikerjakan" }
   ]
 }
 
@@ -634,8 +634,15 @@ ${tugasText.substring(0, 5000)}`;
             console.log("[ETHOL SYNC] Peringatan: AI tidak menemukan jadwal apa pun. Jadwal lama dipertahankan agar aman.");
         }
         
-        if (extractedData.daftar_tugas) {
-            db.daftar_tugas = extractedData.daftar_tugas;
+        if (Array.isArray(extractedData.daftar_tugas)) {
+            db.daftar_tugas = extractedData.daftar_tugas
+                .map((t) => ({
+                    matkul: String(t.matkul || t.mata_kuliah || "").trim(),
+                    deskripsi: String(t.deskripsi || t.judul || t.nama_tugas || "").trim(),
+                    deadline: String(t.deadline || "").trim(),
+                    status: String(t.status || "").trim(),
+                }))
+                .filter((t) => t.matkul || t.deskripsi || t.deadline);
         }
 
         // PENTING: JANGAN PERNAH MENYENTUH db.jadwal KARENA ITU ADALAH REKAP ABSENSI!

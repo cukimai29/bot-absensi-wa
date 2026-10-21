@@ -785,21 +785,30 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     nowWIB.setHours(0, 0, 0, 0);
 
     tugas.forEach((t, i) => {
-      // Hitung sisa hari dengan timezone yang benar
-      let targetDate = new Date(t.deadline);
-      targetDate.setHours(0, 0, 0, 0);
-      let sisaHari = Math.round((targetDate - nowWIB) / (1000 * 60 * 60 * 24));
-      let sisaTeks =
-        sisaHari < 0
-          ? "*(TERLEWAT)*"
-          : sisaHari === 0
-            ? "*(HARI INI)*"
-            : sisaHari === 1
-              ? "*(H-1/BESOK)*"
-              : sisaHari === 2
-                ? "*(H-2)*"
-                : `(${sisaHari} hari lagi)`;
-      pesan += `${i + 1}. *${t.matkul}*\n   📝 ${t.deskripsi}\n   📅 Deadline: ${t.deadline} ${sisaTeks}\n\n`;
+      const matkul = String(t.matkul || t.mata_kuliah || "").trim() || "Tanpa Mata Kuliah";
+      const deskripsi = String(t.deskripsi || t.judul || t.nama_tugas || "").trim() || "Tanpa deskripsi";
+      const deadline = String(t.deadline || "").trim();
+
+      let sisaTeks = "*(tanpa deadline)*";
+      if (deadline) {
+        const targetDate = new Date(deadline);
+        if (!isNaN(targetDate.getTime())) {
+          targetDate.setHours(0, 0, 0, 0);
+          const sisaHari = Math.round((targetDate - nowWIB) / (1000 * 60 * 60 * 24));
+          sisaTeks =
+            sisaHari < 0
+              ? "*(TERLEWAT)*"
+              : sisaHari === 0
+                ? "*(HARI INI)*"
+                : sisaHari === 1
+                  ? "*(H-1/BESOK)*"
+                  : sisaHari === 2
+                    ? "*(H-2)*"
+                    : `(${sisaHari} hari lagi)`;
+        }
+      }
+
+      pesan += `${i + 1}. *${matkul}*\n   📝 ${deskripsi}\n   📅 Deadline: ${deadline || "-"} ${sisaTeks}\n\n`;
     });
     msg.reply(pesan);
   }
