@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeInMemoryStore } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const cron = require('node-cron');
@@ -45,14 +46,84 @@ process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
 });
 
+const SESSION_DIR = process.env.SESSION_DIR
+    ? path.resolve(__dirname, process.env.SESSION_DIR)
+    : path.join(__dirname, 'session');
+
+function normalizePhoneNumber(input) {
+    if (!input) return null;
+
+    let digits = String(input).replace(/[^\d]/g, '');
+    const countryCode = (process.env.PAIRING_COUNTRY_CODE || '62').replace(/[^\d]/g, '') || '62';
+
+    // Nomor Indonesia sering ditulis 08xxx. Ubah otomatis ke format internasional 62xxx.
+    if (digits.startsWith('0')) {
+        digits = countryCode + digits.slice(1);
+    }
+
+    if (digits.length < 8 || digits.length > 15) return null;
+    return digits;
+}
+
+function maskPhone(number) {
+    if (!number) return '-';
+    if (number.length <= 7) return number;
+    return `${number.slice(0, 4)}****${number.slice(-3)}`;
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function requestPairingLogin(client, phoneNumber) {
+    try {
+        console.log('[LOGIN] Menunggu koneksi WhatsApp siap untuk pairing code...');
+        await client.waitForSocketOpen();
+        await sleep(2000);
+
+        const code = await client.requestPairingCode(phoneNumber);
+        const prettyCode = code ? code.match(/.{1,4}/g).join('-') : code;
+
+        console.log('');
+        console.log('==================================================');
+        console.log(`   KODE PAIRING WHATSAPP: ${prettyCode}`);
+        console.log('==================================================');
+        console.log(`Nomor bot: ${maskPhone(phoneNumber)}`);
+        console.log('Cara memasukkan kode:');
+        console.log('1. Buka WhatsApp di HP yang memakai nomor bot.');
+        console.log('2. Masuk ke Pengaturan > Perangkat Tertaut.');
+        console.log('3. Ketuk "Tautkan Perangkat" lalu "Tautkan dengan nomor telepon".');
+        console.log('4. Masukkan kode di atas.');
+        console.log('Kode berlaku sekitar 60 detik.');
+        console.log('Jika kedaluwarsa, restart bot untuk mendapatkan kode baru.');
+        console.log('');
+    } catch (err) {
+        console.error('[LOGIN] Gagal meminta pairing code:', err?.message || err);
+        console.error('[LOGIN] Cek kembali PAIRING_NUMBER di .env, lalu restart bot.');
+    }
+}
+
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('./session');
+    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
     const { version, isLatest } = await fetchLatestBaileysVersion();
-    
+
+    const pairingNumber = normalizePhoneNumber(process.env.PAIRING_NUMBER);
+    const usePairingCode = Boolean(pairingNumber) && !state.creds.registered;
+
+    if (process.env.PAIRING_NUMBER && !pairingNumber) {
+        console.warn('[LOGIN] PAIRING_NUMBER tidak valid. Gunakan format 62xxxxxxxxxx tanpa spasi/tanda +.');
+    }
+
+    if (state.creds.registered) {
+        console.log(`[LOGIN] Sesi tersimpan ditemukan (${SESSION_DIR}). Mencoba masuk otomatis...`);
+    } else if (usePairingCode) {
+        console.log(`[LOGIN] Mode pairing code aktif untuk nomor ${maskPhone(pairingNumber)}.`);
+    } else {
+        console.log('[LOGIN] Mode QR aktif. Scan QR yang muncul di terminal/log PM2.');
+    }
+
     const client = makeWASocket({
         version,
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: true,
+        printQRInTerminal: !usePairingCode,
         auth: state,
         generateHighQualityLinkPreview: true,
         getMessage: async (key) => {
@@ -70,15 +141,23 @@ async function startBot() {
 
     client.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
-        
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+
+        if (qr && !usePairingCode) {
+            console.log('[LOGIN] QR baru tersedia. Scan lewat WhatsApp > Perangkat Tertaut.');
+        }
+
+        if (connection === 'connecting') {
+            console.log('[LOGIN] Menghubungkan ke WhatsApp...');
+        } else if (connection === 'close') {
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             console.log('Koneksi terputus, reconnecting:', shouldReconnect);
             if (shouldReconnect) {
                 console.log('Mematikan proses agar direstart bersih oleh PM2...');
                 process.exit(1);
             } else {
-                console.log('Logged out dari WhatsApp, hapus folder session dan jalankan ulang untuk scan QR.');
+                console.log('[LOGIN] Sesi ditolak WhatsApp (logged out / nomor diblokir).');
+                console.log('[LOGIN] Hapus sesi lama dengan "npm run reset-session", lalu restart bot.');
             }
         } else if (connection === 'open') {
             console.log('Bot WhatsApp sudah siap dan terhubung!');
@@ -88,6 +167,10 @@ async function startBot() {
             }
         }
     });
+
+    if (usePairingCode) {
+        requestPairingLogin(client, pairingNumber);
+    }
 
     client.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
@@ -381,4 +464,7 @@ function setupCronJobs(client) {
     // });
 }
 
-startBot();
+startBot().catch((err) => {
+    console.error('[STARTUP] Gagal memulai bot:', err);
+    process.exit(1);
+});

@@ -1,10 +1,13 @@
 node_modules/
 .wwebjs_auth/
 .wwebjs_cache/
+session/
+session.backup-*/
 .env
 *.zip
 auth.zip
 absensi_data.json
 package-lock.json
 test-kas.js
+*.log
 .env
