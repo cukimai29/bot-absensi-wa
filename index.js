@@ -52,6 +52,7 @@ const SESSION_DIR = process.env.SESSION_DIR
 
 const PORTAL_START_DELAY_MS = Number(process.env.PORTAL_START_DELAY_MS || 5 * 60 * 1000);
 const ETHOL_SYNC_START_DELAY_MS = Number(process.env.ETHOL_SYNC_START_DELAY_MS || 2 * 60 * 1000);
+const SCRAPER_ENABLED = process.env.SCRAPER_ENABLED !== 'false';
 
 function normalizePhoneNumber(input) {
     if (!input) return null;
@@ -248,6 +249,10 @@ function scheduleTodayClasses(client) {
                 }
 
                 let job = cron.schedule(`${minute} ${hour} * * *`, () => {
+                    if (!SCRAPER_ENABLED) {
+                        console.log(`[SCRAPER] Alarm ${jadwal.matkul} dilewati karena SCRAPER_ENABLED=false.`);
+                        return;
+                    }
                     let durationMins = Math.round(durationMs / 60000);
                     console.log(`[ALARM] Waktu kuliah ${jadwal.matkul} tiba. Memulai pengecekan absen intensif (${durationMins} menit).`);
                     intensiveCheckPortal(client, jadwal.matkul, durationMs)
@@ -288,6 +293,10 @@ function setupCronJobs(client) {
     scheduleTodayClasses(client);
 
     cron.schedule('1 0 * * *', async () => {
+        if (!SCRAPER_ENABLED) {
+            console.log('[SCRAPER] Sinkronisasi tengah malam dilewati karena SCRAPER_ENABLED=false.');
+            return;
+        }
         console.log('[SISTEM] Memulai rutinitas tengah malam: Sinkronisasi ETHOL...');
         try {
             await syncJadwalTugas();
@@ -345,12 +354,18 @@ function setupCronJobs(client) {
         timezone: "Asia/Jakarta"
     });
 
-    // Tunda sinkronisasi awal agar Chromium tidak berebut CPU saat WhatsApp baru connect.
-    setTimeout(() => {
-        syncJadwalTugas().then(() => scheduleTodayClasses(client)).catch(console.error);
-    }, ETHOL_SYNC_START_DELAY_MS);
+    if (SCRAPER_ENABLED) {
+        // Tunda sinkronisasi awal agar Chromium tidak berebut CPU saat WhatsApp baru connect.
+        setTimeout(() => {
+            syncJadwalTugas().then(() => scheduleTodayClasses(client)).catch(console.error);
+        }, ETHOL_SYNC_START_DELAY_MS);
+    } else {
+        console.log('[SCRAPER] Sinkronisasi ETHOL dan pengecekan portal dinonaktifkan sementara (SCRAPER_ENABLED=false).');
+    }
 
     function scheduleRandomCheck() {
+        if (!SCRAPER_ENABLED) return;
+
         const now = new Date();
         const currentHour = now.getHours();
 
@@ -371,11 +386,13 @@ function setupCronJobs(client) {
         setTimeout(scheduleRandomCheck, randomDelay);
     }
 
-    // Jangan langsung membuka Chromium setelah connect; beri koneksi WhatsApp waktu stabil.
-    setTimeout(() => {
-        console.log('[PORTAL] Memulai pengecekan portal pertama setelah bot stabil...');
-        scheduleRandomCheck();
-    }, PORTAL_START_DELAY_MS);
+    if (SCRAPER_ENABLED) {
+        // Jangan langsung membuka Chromium setelah connect; beri koneksi WhatsApp waktu stabil.
+        setTimeout(() => {
+            console.log('[PORTAL] Memulai pengecekan portal pertama setelah bot stabil...');
+            scheduleRandomCheck();
+        }, PORTAL_START_DELAY_MS);
+    }
 
     cron.schedule('0 0 * * 1', () => {
         let data = loadData();
