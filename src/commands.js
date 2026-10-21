@@ -20,6 +20,41 @@ function isButtonMenuEnabledForChat(chatId) {
   return !testGroup || testGroup === chatId;
 }
 
+function buildMenuListContent() {
+  return {
+    text: "Pilih menu yang ingin dibuka:",
+    title: "🤖 SMARTBOT ABSENSI",
+    footer: "SMARTBOT by RzkyAds",
+    buttonText: "📋 Buka Menu",
+    sections: [
+      {
+        title: "📚 Akademik",
+        rows: [
+          { title: "📚 Jadwal", description: "Jadwal kuliah minggu ini", rowId: ".jadwal" },
+          { title: "📝 Tugas", description: "Daftar tugas dan deadline", rowId: ".tugas" },
+          { title: "📊 Rekap Absen", description: "Rekap absensi minggu ini", rowId: ".allabsensi" },
+          { title: "📅 Cek Jadwal Hari Ini", description: "Jadwal aktif hari ini", rowId: ".cekjadwal" },
+        ],
+      },
+      {
+        title: "🎮 Hiburan",
+        rows: [
+          { title: "🧩 Susun Kata", description: "Main tebak kata di grup", rowId: ".susunkata" },
+          { title: "🎭 Truth or Dare", description: "Main truth or dare", rowId: ".truth" },
+          { title: "🍀 Cek Hoki", description: "Cek persentase hoki hari ini", rowId: ".cekhoki" },
+        ],
+      },
+      {
+        title: "ℹ️ Info Bot",
+        rows: [
+          { title: "⏱️ Runtime", description: "Lihat uptime bot", rowId: ".runtime" },
+          { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", rowId: ".help" },
+        ],
+      },
+    ],
+  };
+}
+
 async function createMeme(base64Image, mimetype, topText, bottomText) {
   const puppeteer = require("puppeteer");
   const browser = await puppeteer.launch({
@@ -417,10 +452,34 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
   }
 
   if (msg.body.toLowerCase() === "bot") {
-    const menuPesan = `🤖 *SMARTBOT HADIR* 🤖
+    const sapaan = `🤖 *SMARTBOT HADIR* 🤖
 
-    Silahkan ketik .menu untuk menampilkan fitur bot!!`;
-    await msg.reply(menuPesan);
+Halo! Aku SmartBot. Ketik *.menu* untuk membuka menu fitur bot.`;
+
+    if (isButtonMenuEnabledForChat(msg.from)) {
+      try {
+        console.log(`[BUTTONS] Mengirim sapaan tombol ke ${msg.from}`);
+        await msg.reply({
+          interactiveMessage: {
+            header: "🤖 SMARTBOT HADIR",
+            title: "Halo! Aku SmartBot. Klik tombol di bawah untuk membuka menu.",
+            footer: "SMARTBOT by RzkyAds",
+            buttons: [
+              {
+                name: "quick_reply",
+                buttonParamsJson: JSON.stringify({ display_text: "📋 Buka Menu", id: ".menu" }),
+              },
+            ],
+          },
+        });
+      } catch (err) {
+        console.error(`[BUTTONS] Gagal mengirim sapaan tombol: ${err.message}. Fallback ke teks.`);
+        await msg.reply(sapaan);
+      }
+    } else {
+      await msg.reply(sapaan);
+    }
+    return;
   }
   if (msg.body.toLowerCase() === ".testkas") {
     msg.reply(
@@ -497,30 +556,10 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
 
     if (isMenuCommand && isButtonMenuEnabledForChat(msg.from)) {
       try {
-        console.log(`[BUTTONS] Mengirim menu tombol ke ${msg.from}`);
-        await msg.reply({
-          interactiveMessage: {
-            header: "🤖 SMARTBOT ABSENSI",
-            title: `Halo! Pilih menu cepat di bawah ini, atau ketik perintahnya langsung:\n\n• *.jadwal* — jadwal kuliah\n• *.tugas* — daftar tugas\n• *.help* — menu lengkap`,
-            footer: "SMARTBOT by RzkyAds",
-            buttons: [
-              {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({ display_text: "📚 Jadwal", id: ".jadwal" }),
-              },
-              {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({ display_text: "📝 Tugas", id: ".tugas" }),
-              },
-              {
-                name: "quick_reply",
-                buttonParamsJson: JSON.stringify({ display_text: "📋 Menu Lengkap", id: ".help" }),
-              },
-            ],
-          },
-        });
+        console.log(`[BUTTONS] Mengirim menu list ke ${msg.from}`);
+        await msg.reply(buildMenuListContent());
       } catch (err) {
-        console.error(`[BUTTONS] Gagal mengirim menu tombol: ${err.message}. Fallback ke teks.`);
+        console.error(`[BUTTONS] Gagal mengirim menu list: ${err.message}. Fallback ke teks.`);
         await msg.reply(menuPesan);
       }
     } else {
