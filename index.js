@@ -150,8 +150,10 @@ async function startBot() {
             console.log('[LOGIN] Menghubungkan ke WhatsApp...');
         } else if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const errorMessage = lastDisconnect?.error?.message || 'tanpa keterangan';
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            console.log('Koneksi terputus, reconnecting:', shouldReconnect);
+            console.log(`Koneksi terputus (status ${statusCode ?? '-'}): ${errorMessage}`);
+            console.log('Reconnecting:', shouldReconnect);
             if (shouldReconnect) {
                 console.log('Mematikan proses agar direstart bersih oleh PM2...');
                 process.exit(1);
@@ -174,6 +176,17 @@ async function startBot() {
 
     client.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
+        if (!msg) return;
+
+        if (process.env.DEBUG_MESSAGES === 'true') {
+            const preview = msg.message?.conversation
+                || msg.message?.extendedTextMessage?.text
+                || msg.message?.imageMessage?.caption
+                || msg.message?.videoMessage?.caption
+                || '';
+            console.log(`[MSG] jid=${msg.key.remoteJid} fromMe=${msg.key.fromMe} type=${m.type} body=${String(preview).slice(0, 80)}`);
+        }
+
         if (!msg.message) return;
         if (msg.key.fromMe) return; // Ignore bot's own messages
         
@@ -229,7 +242,8 @@ function scheduleTodayClasses(client) {
                 let job = cron.schedule(`${minute} ${hour} * * *`, () => {
                     let durationMins = Math.round(durationMs / 60000);
                     console.log(`[ALARM] Waktu kuliah ${jadwal.matkul} tiba. Memulai pengecekan absen intensif (${durationMins} menit).`);
-                    intensiveCheckPortal(client, jadwal.matkul, durationMs);
+                    intensiveCheckPortal(client, jadwal.matkul, durationMs)
+                        .catch(err => console.error('[INTENSIF] Pengecekan gagal:', err.message));
                 }, {
                     scheduled: true,
                     timezone: "Asia/Jakarta"
@@ -334,7 +348,7 @@ function setupCronJobs(client) {
 
         if (currentHour >= 5 && currentHour <= 21) {
             console.log('Menjalankan pengecekan portal kampus secara acak...');
-            checkPortal(client);
+            checkPortal(client).catch(err => console.error('[PORTAL] Pengecekan acak gagal:', err.message));
         } else {
             console.log(`[${now.toLocaleTimeString('id-ID')}] Di luar jam kerja (05:00 - 21:00). Pengecekan ditunda.`);
         }

@@ -1,6 +1,31 @@
 const puppeteer = require('puppeteer');
 const { catatAbsen } = require('./database');
 
+const PUPPETEER_LAUNCH_TIMEOUT = Number(process.env.PUPPETEER_LAUNCH_TIMEOUT || 60000);
+const PUPPETEER_PROTOCOL_TIMEOUT = Number(process.env.PUPPETEER_PROTOCOL_TIMEOUT || 120000);
+
+async function launchBrowser(overrides = {}) {
+    const launchOptions = {
+        headless: true,
+        timeout: PUPPETEER_LAUNCH_TIMEOUT,
+        protocolTimeout: PUPPETEER_PROTOCOL_TIMEOUT,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--disable-gpu'
+        ],
+        ...overrides
+    };
+
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+
+    return puppeteer.launch(launchOptions);
+}
+
 let useSecondAccount = false;
 
 function getLastUsedAccount() {
@@ -45,19 +70,23 @@ async function announceAbsen(client, groupId, matkul, tanggal) {
 }
 
 async function checkPortal(client) {
-    const browser = await puppeteer.launch({ 
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage', 
-            '--disable-accelerated-2d-canvas',
-            '--no-zygote',
-            '--disable-gpu'
-        ]
-    });
-    const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(120000); 
+    let browser;
+    try {
+        browser = await launchBrowser();
+    } catch (err) {
+        console.error('[PORTAL] Gagal membuka browser:', err.message);
+        return;
+    }
+
+    let page;
+    try {
+        page = await browser.newPage();
+        page.setDefaultNavigationTimeout(120000);
+    } catch (err) {
+        console.error('[PORTAL] Gagal membuka halaman browser:', err.message);
+        await browser.close().catch(() => {});
+        return;
+    }
 
     try {
         await page.goto('https://login.pens.ac.id/cas/login?service=https%3A%2F%2Fethol.pens.ac.id%2Fapi%2Fauth%2Fcas-callback', { waitUntil: 'networkidle2' });
@@ -198,26 +227,31 @@ async function checkPortal(client) {
     } catch (error) {
         console.error('Terjadi kesalahan saat mengecek portal:', error);
     } finally {
-        await browser.close();
+        if (browser) await browser.close().catch(() => {});
     }
 }
 
 async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 * 60 * 1000) {
     let durationMins = Math.round(customDurationMs / 60000);
     console.log(`[INTENSIF] Memulai pengecekan intensif ${durationMins} menit untuk matkul: ${targetMatkul}`);
-    const browser = await puppeteer.launch({ 
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage', 
-            '--disable-accelerated-2d-canvas',
-            '--no-zygote',
-            '--disable-gpu'
-        ]
-    });
-    const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(120000); 
+
+    let browser;
+    try {
+        browser = await launchBrowser();
+    } catch (err) {
+        console.error('[INTENSIF] Gagal membuka browser:', err.message);
+        return;
+    }
+
+    let page;
+    try {
+        page = await browser.newPage();
+        page.setDefaultNavigationTimeout(120000);
+    } catch (err) {
+        console.error('[INTENSIF] Gagal membuka halaman browser:', err.message);
+        await browser.close().catch(() => {});
+        return;
+    }
 
     try {
         await page.goto('https://login.pens.ac.id/cas/login?service=https%3A%2F%2Fethol.pens.ac.id%2Fapi%2Fauth%2Fcas-callback', { waitUntil: 'networkidle2' });
@@ -356,7 +390,7 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
     } catch (error) {
         console.error('[INTENSIF] Terjadi kesalahan saat mengecek portal:', error);
     } finally {
-        await browser.close();
+        if (browser) await browser.close().catch(() => {});
         console.log(`[INTENSIF] Pengecekan intensif selesai, browser ditutup.`);
     }
 }
@@ -371,11 +405,14 @@ async function syncJadwalTugas() {
         return;
     }
 
-    const browser = await puppeteer.launch({ 
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-    });
-    
+    let browser;
+    try {
+        browser = await launchBrowser();
+    } catch (err) {
+        console.error('[ETHOL SYNC] Gagal membuka browser:', err.message);
+        return;
+    }
+
     try {
         const page = await browser.newPage();
         const username = getLastUsedAccount();
@@ -497,7 +534,7 @@ ${tugasText.substring(0, 5000)}`;
     } catch (err) {
         console.error("[ETHOL SYNC] Gagal melakukan sinkronisasi:", err);
     } finally {
-        await browser.close();
+        if (browser) await browser.close().catch(() => {});
     }
 }
 
