@@ -20,40 +20,71 @@ function isButtonMenuEnabledForChat(chatId) {
   return !testGroup || testGroup === chatId;
 }
 
-function buildMenuListContent() {
+function buildButtonMenuContent(header, title, footer, buttons) {
   return {
-    text: "Pilih menu yang ingin dibuka:",
-    title: "🤖 SMARTBOT ABSENSI",
-    footer: "SMARTBOT by RzkyAds",
-    buttonText: "📋 Buka Menu",
-    sections: [
-      {
-        title: "📚 Akademik",
-        rows: [
-          { title: "📚 Jadwal", description: "Jadwal kuliah minggu ini", rowId: ".jadwal" },
-          { title: "📝 Tugas", description: "Daftar tugas dan deadline", rowId: ".tugas" },
-          { title: "📊 Rekap Absen", description: "Rekap absensi minggu ini", rowId: ".allabsensi" },
-          { title: "📅 Cek Jadwal Hari Ini", description: "Jadwal aktif hari ini", rowId: ".cekjadwal" },
-        ],
-      },
-      {
-        title: "🎮 Hiburan",
-        rows: [
-          { title: "🧩 Susun Kata", description: "Main tebak kata di grup", rowId: ".susunkata" },
-          { title: "🎭 Truth or Dare", description: "Main truth or dare", rowId: ".truth" },
-          { title: "🍀 Cek Hoki", description: "Cek persentase hoki hari ini", rowId: ".cekhoki" },
-        ],
-      },
-      {
-        title: "ℹ️ Info Bot",
-        rows: [
-          { title: "⏱️ Runtime", description: "Lihat uptime bot", rowId: ".runtime" },
-          { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", rowId: ".help" },
-        ],
-      },
-    ],
+    interactiveMessage: {
+      header,
+      title,
+      footer,
+      buttons: buttons.map(([displayText, id]) => ({
+        name: "quick_reply",
+        buttonParamsJson: JSON.stringify({ display_text: displayText, id }),
+      })),
+    },
   };
 }
+
+const CATEGORY_MENUS = {
+  ".menu_akademik": {
+    header: "📚 MENU AKADEMIK",
+    title: "Pilih menu akademik:\n\n• Jadwal kuliah\n• Daftar tugas\n• Rekap absen",
+    footer: "Ketik .menu untuk kembali ke menu utama",
+    buttons: [
+      ["📚 Jadwal", ".jadwal"],
+      ["📝 Tugas", ".tugas"],
+      ["📊 Rekap Absen", ".allabsensi"],
+    ],
+    fallbackText: `📚 *MENU AKADEMIK*
+
+1. *.jadwal* — jadwal kuliah
+2. *.tugas* — daftar tugas
+3. *.allabsensi* — rekap absen
+
+Ketik *.menu* untuk kembali.`,
+  },
+  ".menu_hiburan": {
+    header: "🎮 MENU HIBURAN",
+    title: "Pilih menu hiburan:\n\n• Susun kata\n• Truth or Dare\n• Cek hoki",
+    footer: "Ketik .menu untuk kembali ke menu utama",
+    buttons: [
+      ["🧩 Susun Kata", ".susunkata"],
+      ["🎭 Truth or Dare", ".truth"],
+      ["🍀 Cek Hoki", ".cekhoki"],
+    ],
+    fallbackText: `🎮 *MENU HIBURAN*
+
+1. *.susunkata* — main tebak kata
+2. *.truth* — truth or dare
+3. *.cekhoki* — cek hoki
+
+Ketik *.menu* untuk kembali.`,
+  },
+  ".menu_info": {
+    header: "ℹ️ INFO BOT",
+    title: "Pilih menu info:\n\n• Uptime bot\n• Daftar semua fitur\n• Kembali ke menu utama",
+    footer: "SMARTBOT by RzkyAds",
+    buttons: [
+      ["⏱️ Runtime", ".runtime"],
+      ["📋 Menu Lengkap", ".help"],
+      ["⬅️ Menu Utama", ".menu"],
+    ],
+    fallbackText: `ℹ️ *INFO BOT*
+
+1. *.runtime* — uptime bot
+2. *.help* — menu lengkap
+3. *.menu* — menu utama`,
+  },
+};
 
 async function createMeme(base64Image, mimetype, topText, bottomText) {
   const puppeteer = require("puppeteer");
@@ -556,15 +587,49 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
 
     if (isMenuCommand && isButtonMenuEnabledForChat(msg.from)) {
       try {
-        console.log(`[BUTTONS] Mengirim menu list ke ${msg.from}`);
-        await msg.reply(buildMenuListContent());
+        console.log(`[BUTTONS] Mengirim menu utama ke ${msg.from}`);
+        await msg.reply(
+          buildButtonMenuContent(
+            "🤖 SMARTBOT ABSENSI",
+            "Pilih kategori menu:\n\n📚 Akademik — jadwal, tugas, rekap absen\n🎮 Hiburan — game dan tebak-tebakan\nℹ️ Info Bot — runtime dan menu lengkap",
+            "SMARTBOT by RzkyAds",
+            [
+              ["📚 Akademik", ".menu_akademik"],
+              ["🎮 Hiburan", ".menu_hiburan"],
+              ["ℹ️ Info Bot", ".menu_info"],
+            ]
+          )
+        );
       } catch (err) {
-        console.error(`[BUTTONS] Gagal mengirim menu list: ${err.message}. Fallback ke teks.`);
+        console.error(`[BUTTONS] Gagal mengirim menu utama: ${err.message}. Fallback ke teks.`);
         await msg.reply(menuPesan);
       }
     } else {
       await msg.reply(menuPesan);
     }
+  }
+
+  const categoryMenu = CATEGORY_MENUS[msg.body.toLowerCase()];
+  if (categoryMenu) {
+    if (isButtonMenuEnabledForChat(msg.from)) {
+      try {
+        console.log(`[BUTTONS] Mengirim ${msg.body.toLowerCase()} ke ${msg.from}`);
+        await msg.reply(
+          buildButtonMenuContent(
+            categoryMenu.header,
+            categoryMenu.title,
+            categoryMenu.footer,
+            categoryMenu.buttons
+          )
+        );
+      } catch (err) {
+        console.error(`[BUTTONS] Gagal mengirim ${msg.body.toLowerCase()}: ${err.message}. Fallback ke teks.`);
+        await msg.reply(categoryMenu.fallbackText);
+      }
+    } else {
+      await msg.reply(categoryMenu.fallbackText);
+    }
+    return;
   }
 
   if (msg.body.toLowerCase().startsWith(".tanya")) {
