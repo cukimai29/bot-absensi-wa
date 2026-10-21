@@ -50,6 +50,9 @@ const SESSION_DIR = process.env.SESSION_DIR
     ? path.resolve(__dirname, process.env.SESSION_DIR)
     : path.join(__dirname, 'session');
 
+const PORTAL_START_DELAY_MS = Number(process.env.PORTAL_START_DELAY_MS || 5 * 60 * 1000);
+const ETHOL_SYNC_START_DELAY_MS = Number(process.env.ETHOL_SYNC_START_DELAY_MS || 2 * 60 * 1000);
+
 function normalizePhoneNumber(input) {
     if (!input) return null;
 
@@ -125,6 +128,7 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         printQRInTerminal: !usePairingCode,
         auth: state,
+        keepAliveIntervalMs: Number(process.env.WA_KEEPALIVE_MS || 60000),
         generateHighQualityLinkPreview: true,
         getMessage: async (key) => {
             if (store) {
@@ -337,10 +341,10 @@ function setupCronJobs(client) {
         timezone: "Asia/Jakarta"
     });
 
-    // Jalankan satu kali setelah bot siap (delay 10 detik agar tidak bentrok dengan proses awal)
+    // Tunda sinkronisasi awal agar Chromium tidak berebut CPU saat WhatsApp baru connect.
     setTimeout(() => {
         syncJadwalTugas().then(() => scheduleTodayClasses(client)).catch(console.error);
-    }, 10000);
+    }, ETHOL_SYNC_START_DELAY_MS);
 
     function scheduleRandomCheck() {
         const now = new Date();
@@ -363,7 +367,11 @@ function setupCronJobs(client) {
         setTimeout(scheduleRandomCheck, randomDelay);
     }
 
-    scheduleRandomCheck();
+    // Jangan langsung membuka Chromium setelah connect; beri koneksi WhatsApp waktu stabil.
+    setTimeout(() => {
+        console.log('[PORTAL] Memulai pengecekan portal pertama setelah bot stabil...');
+        scheduleRandomCheck();
+    }, PORTAL_START_DELAY_MS);
 
     cron.schedule('0 0 * * 1', () => {
         let data = loadData();

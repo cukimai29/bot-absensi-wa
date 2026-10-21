@@ -7,6 +7,8 @@
     "start": "node index.js",
     "login": "node index.js",
     "reset-session": "node scripts/reset-session.js",
+    "patch-baileys": "node scripts/patch-baileys.js",
+    "postinstall": "node scripts/patch-baileys.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:restart": "pm2 restart botwaku",
     "pm2:logs": "pm2 logs botwaku --lines 100",
