@@ -273,6 +273,8 @@ async function checkPortal(client) {
             let todayName = namaHari[new Date(todayStr).getDay()];
             let jadwalHariIni = dbData.daftar_jadwal ? (dbData.daftar_jadwal[todayName] || []) : [];
             let matkulHariIni = jadwalHariIni.map(j => j.matkul.toLowerCase());
+            let absenBaru = 0;
+            let absenDuplikat = 0;
 
             for (let absen of daftarAbsenTerbuka) {
                 // Filter: Hanya proses jika matkul ada di jadwal hari ini (mencegah spam notif lama dari minggu lalu)
@@ -282,6 +284,7 @@ async function checkPortal(client) {
                 
                 let isBaru = catatAbsen(absen.matkul, absen.tanggal);
                 if (isBaru) {
+                    absenBaru++;
                     let sukses = await announceAbsen(client, process.env.TARGET_GROUP_ID, absen.matkul, absen.tanggal);
                     if (sukses) {
                         console.log(`Pengumuman absen ${absen.matkul} berhasil dikirim.`);
@@ -290,7 +293,13 @@ async function checkPortal(client) {
                         const { hapusAbsen } = require('./database');
                         hapusAbsen(absen.matkul);
                     }
+                } else {
+                    absenDuplikat++;
                 }
+            }
+
+            if (absenBaru === 0) {
+                console.log(`Tidak ada absensi baru untuk jadwal hari ini (${absenDuplikat} absensi sudah pernah dicatat).`);
             }
         } else {
             console.log('Tidak ada absensi baru saat ini.');
