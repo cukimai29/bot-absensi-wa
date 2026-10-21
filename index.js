@@ -155,7 +155,7 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         printQRInTerminal: !usePairingCode,
         auth: state,
-        keepAliveIntervalMs: Number(process.env.WA_KEEPALIVE_MS || 60000),
+        keepAliveIntervalMs: Number(process.env.WA_KEEPALIVE_MS || 30000),
         syncFullHistory: false,
         generateHighQualityLinkPreview: true,
         getMessage: async (key) => {
@@ -184,6 +184,11 @@ async function startBot() {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             const errorMessage = lastDisconnect?.error?.message || 'tanpa keterangan';
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+            if (process.env.DEBUG_MESSAGES === 'true') {
+                console.log('[DEBUG] lastDisconnect:', require('util').inspect(lastDisconnect, { depth: 5, breakLength: 120 }));
+            }
+
             console.log(`Koneksi terputus (status ${statusCode ?? '-'}): ${errorMessage}`);
             console.log('Reconnecting:', shouldReconnect);
             if (shouldReconnect) {
