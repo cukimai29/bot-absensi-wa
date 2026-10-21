@@ -20,6 +20,10 @@ function isButtonMenuEnabledForChat(chatId) {
   return !testGroup || testGroup === chatId;
 }
 
+function isSafeModeEnabled() {
+  return (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
+}
+
 function buildButtonMenuContent(header, title, footer, buttons) {
   return {
     interactiveMessage: {
@@ -442,6 +446,14 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
   };
 
   const chatId = msg.from;
+
+  if (isSafeModeEnabled()) {
+    const blockedCommands = [".testabsen", ".testkas", ".hidetag", ".testnotif", ".cekportal"];
+    if (blockedCommands.some((cmd) => msg.body.toLowerCase().startsWith(cmd))) {
+      await msg.reply("🛡️ *Mode aman aktif.* Perintah pengiriman massal/otomatis dimatikan sementara. Bot hanya membalas command seperti *.menu*, *.jadwal*, dan *.tugas*.");
+      return;
+    }
+  }
 
   if (activeGames[chatId]) {
     let game = activeGames[chatId];

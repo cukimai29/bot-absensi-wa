@@ -28,6 +28,7 @@ async function sendPremiumAnnouncement(client, groupId, text) {
 
 let scheduledJobs = [];
 let isBotStarted = false;
+const SAFE_MODE = (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
 let isShuttingDown = false;
 
 function cleanupOrphanedChrome() {
@@ -325,6 +326,11 @@ function scheduleTodayClasses(client) {
 }
 
 function setupCronJobs(client) {
+    if (SAFE_MODE) {
+        console.log('[SAFE_MODE] Semua pengiriman otomatis dinonaktifkan. Bot hanya membalas command manual.');
+        return;
+    }
+
     scheduleTodayClasses(client);
 
     cron.schedule('1 0 * * *', async () => {
