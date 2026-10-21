@@ -12,16 +12,23 @@ const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
 
+function isSafeModeEnabled() {
+  return (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
+}
+
+function getMenuStyle() {
+  const style = (process.env.MENU_STYLE || "buttons").trim().toLowerCase();
+  return style === "list" || style === "single_select" ? "list" : "buttons";
+}
+
 function isButtonMenuEnabledForChat(chatId) {
+  if (isSafeModeEnabled()) return false;
+
   const enabled = (process.env.ENABLE_BUTTONS || "").trim().toLowerCase() === "true";
   if (!enabled) return false;
 
   const testGroup = (process.env.BUTTONS_TEST_GROUP_ID || "").trim();
   return !testGroup || testGroup === chatId;
-}
-
-function isSafeModeEnabled() {
-  return (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
 }
 
 function buildButtonMenuContent(header, title, footer, buttons) {
@@ -38,6 +45,60 @@ function buildButtonMenuContent(header, title, footer, buttons) {
   };
 }
 
+function buildSingleSelectMenuContent(header, title, footer, buttonText, sections) {
+  return {
+    interactiveMessage: {
+      header,
+      title,
+      footer,
+      buttons: [
+        {
+          name: "single_select",
+          buttonParamsJson: JSON.stringify({
+            title: buttonText,
+            sections: sections.map((section) => ({
+              title: section.title,
+              rows: section.rows.map((row) => ({
+                header: row.title,
+                title: row.title,
+                description: row.description || "",
+                id: row.id,
+              })),
+            })),
+          }),
+        },
+      ],
+    },
+  };
+}
+
+const MAIN_MENU_SECTIONS = [
+  {
+    title: "📚 Akademik",
+    rows: [
+      { title: "📚 Jadwal", description: "Jadwal kuliah minggu ini", id: ".jadwal" },
+      { title: "📝 Tugas", description: "Daftar tugas dan deadline", id: ".tugas" },
+      { title: "📊 Rekap Absen", description: "Rekap absensi minggu ini", id: ".allabsensi" },
+      { title: "📅 Cek Jadwal Hari Ini", description: "Jadwal aktif hari ini", id: ".cekjadwal" },
+    ],
+  },
+  {
+    title: "🎮 Hiburan",
+    rows: [
+      { title: "🧩 Susun Kata", description: "Main tebak kata di grup", id: ".susunkata" },
+      { title: "🎭 Truth or Dare", description: "Main truth or dare", id: ".truth" },
+      { title: "🍀 Cek Hoki", description: "Cek persentase hoki hari ini", id: ".cekhoki" },
+    ],
+  },
+  {
+    title: "ℹ️ Info Bot",
+    rows: [
+      { title: "⏱️ Runtime", description: "Lihat uptime bot", id: ".runtime" },
+      { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", id: ".help" },
+    ],
+  },
+];
+
 const CATEGORY_MENUS = {
   ".menu_akademik": {
     header: "📚 MENU AKADEMIK",
@@ -47,6 +108,12 @@ const CATEGORY_MENUS = {
       ["📚 Jadwal", ".jadwal"],
       ["📝 Tugas", ".tugas"],
       ["📊 Rekap Absen", ".allabsensi"],
+    ],
+    rows: [
+      { title: "📚 Jadwal", description: "Jadwal kuliah minggu ini", id: ".jadwal" },
+      { title: "📝 Tugas", description: "Daftar tugas dan deadline", id: ".tugas" },
+      { title: "📊 Rekap Absen", description: "Rekap absensi minggu ini", id: ".allabsensi" },
+      { title: "📅 Cek Jadwal Hari Ini", description: "Jadwal aktif hari ini", id: ".cekjadwal" },
     ],
     fallbackText: `📚 *MENU AKADEMIK*
 
@@ -65,6 +132,11 @@ Ketik *.menu* untuk kembali.`,
       ["🎭 Truth or Dare", ".truth"],
       ["🍀 Cek Hoki", ".cekhoki"],
     ],
+    rows: [
+      { title: "🧩 Susun Kata", description: "Main tebak kata di grup", id: ".susunkata" },
+      { title: "🎭 Truth or Dare", description: "Main truth or dare", id: ".truth" },
+      { title: "🍀 Cek Hoki", description: "Cek persentase hoki hari ini", id: ".cekhoki" },
+    ],
     fallbackText: `🎮 *MENU HIBURAN*
 
 1. *.susunkata* — main tebak kata
@@ -81,6 +153,11 @@ Ketik *.menu* untuk kembali.`,
       ["⏱️ Runtime", ".runtime"],
       ["📋 Menu Lengkap", ".help"],
       ["⬅️ Menu Utama", ".menu"],
+    ],
+    rows: [
+      { title: "⏱️ Runtime", description: "Lihat uptime bot", id: ".runtime" },
+      { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", id: ".help" },
+      { title: "⬅️ Menu Utama", description: "Kembali ke menu utama", id: ".menu" },
     ],
     fallbackText: `ℹ️ *INFO BOT*
 
@@ -599,19 +676,32 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
 
     if (isMenuCommand && isButtonMenuEnabledForChat(msg.from)) {
       try {
-        console.log(`[BUTTONS] Mengirim menu utama ke ${msg.from}`);
-        await msg.reply(
-          buildButtonMenuContent(
-            "🤖 SMARTBOT ABSENSI",
-            "Pilih kategori menu:\n\n📚 Akademik — jadwal, tugas, rekap absen\n🎮 Hiburan — game dan tebak-tebakan\nℹ️ Info Bot — runtime dan menu lengkap",
-            "SMARTBOT by RzkyAds",
-            [
-              ["📚 Akademik", ".menu_akademik"],
-              ["🎮 Hiburan", ".menu_hiburan"],
-              ["ℹ️ Info Bot", ".menu_info"],
-            ]
-          )
-        );
+        const menuStyle = getMenuStyle();
+        console.log(`[BUTTONS] Mengirim menu utama (${menuStyle}) ke ${msg.from}`);
+        if (menuStyle === "list") {
+          await msg.reply(
+            buildSingleSelectMenuContent(
+              "🤖 SMARTBOT ABSENSI",
+              "Pilih menu yang ingin dibuka:",
+              "SMARTBOT by RzkyAds",
+              "📋 Buka Menu",
+              MAIN_MENU_SECTIONS
+            )
+          );
+        } else {
+          await msg.reply(
+            buildButtonMenuContent(
+              "🤖 SMARTBOT ABSENSI",
+              "Pilih kategori menu:\n\n📚 Akademik — jadwal, tugas, rekap absen\n🎮 Hiburan — game dan tebak-tebakan\nℹ️ Info Bot — runtime dan menu lengkap",
+              "SMARTBOT by RzkyAds",
+              [
+                ["📚 Akademik", ".menu_akademik"],
+                ["🎮 Hiburan", ".menu_hiburan"],
+                ["ℹ️ Info Bot", ".menu_info"],
+              ]
+            )
+          );
+        }
       } catch (err) {
         console.error(`[BUTTONS] Gagal mengirim menu utama: ${err.message}. Fallback ke teks.`);
         await msg.reply(menuPesan);
@@ -625,15 +715,28 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
   if (categoryMenu) {
     if (isButtonMenuEnabledForChat(msg.from)) {
       try {
-        console.log(`[BUTTONS] Mengirim ${msg.body.toLowerCase()} ke ${msg.from}`);
-        await msg.reply(
-          buildButtonMenuContent(
-            categoryMenu.header,
-            categoryMenu.title,
-            categoryMenu.footer,
-            categoryMenu.buttons
-          )
-        );
+        const menuStyle = getMenuStyle();
+        console.log(`[BUTTONS] Mengirim ${msg.body.toLowerCase()} (${menuStyle}) ke ${msg.from}`);
+        if (menuStyle === "list") {
+          await msg.reply(
+            buildSingleSelectMenuContent(
+              categoryMenu.header,
+              categoryMenu.title,
+              categoryMenu.footer,
+              "📋 Pilih Menu",
+              [{ title: categoryMenu.header, rows: categoryMenu.rows }]
+            )
+          );
+        } else {
+          await msg.reply(
+            buildButtonMenuContent(
+              categoryMenu.header,
+              categoryMenu.title,
+              categoryMenu.footer,
+              categoryMenu.buttons
+            )
+          );
+        }
       } catch (err) {
         console.error(`[BUTTONS] Gagal mengirim ${msg.body.toLowerCase()}: ${err.message}. Fallback ke teks.`);
         await msg.reply(categoryMenu.fallbackText);
