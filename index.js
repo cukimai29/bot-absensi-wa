@@ -511,13 +511,8 @@ function setupCronJobs(client) {
         timezone: "Asia/Jakarta"
     });
 
-    cron.schedule('0 5 * * *', async () => {
-        const pesanSubuh = `🌅 *SELAMAT PAGI SEMUANYA!* 🌅\n\nJangan lupa untuk segera bangun dan melaksanakan sholat subuh bagi yang menjalankan. Awali hari dengan doa agar dilancarkan segala urusannya!\n\n💸 *REMINDER KAS KELAS* 💸\nSekalian ngingetin buat teman-teman yang belum bayar uang kas kelas, yuk segera dilunasi ke bendahara agar keuangan kelas kita tetap sehat dan lancar!`;
-        await sendHidetagWithRetry(pesanSubuh, "Pengingat Pagi");
-    }, {
-        scheduled: true,
-        timezone: "Asia/Jakarta"
-    });
+    // Reminder subuh + kas kelas dihapus agar tidak mengirim hidetag dini hari.
+    // Ini mengurangi risiko ban dan beban pengiriman otomatis.
 
     async function updateAutoBio() {
         try {

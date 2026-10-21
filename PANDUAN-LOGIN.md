@@ -182,7 +182,7 @@ WhatsApp membatasi akun yang mengirim pesan otomatis dalam jumlah besar, apalagi
 - Jangan langsung menjalankan semua pengumuman otomatis setelah login pertama.
 - Biarkan nomor "hidup" dulu 24-48 jam: chat normal, simpan kontak, masuk grup secara manual.
 - Hindari tag semua anggota grup terlalu sering.
-- Reminder subuh, reminder tugas, dan morning briefing saat ini semuanya memakai hidetag. Sebaiknya kurangi atau matikan sementara.
+- Reminder subuh sudah dihapus. Reminder tugas dan morning briefing masih memakai hidetag; sebaiknya kurangi frekuensinya.
 - Jangan menjalankan dua bot dengan nomor yang sama.
 - HP nomor bot harus tetap online dan terhubung internet karena WhatsApp Web/Baileys bekerja sebagai perangkat tertaut.
 - Untuk kebutuhan pengumuman massal yang resmi, pertimbangkan WhatsApp Business Cloud API.
