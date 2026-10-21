@@ -565,31 +565,52 @@ ${jadwalText.substring(0, 5000)}
 === TEKS DAFTAR TUGAS ===
 ${tugasText.substring(0, 5000)}`;
 
+        const models = [process.env.GEMINI_MODEL || "gemini-3.6-flash"];
+        const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
+        if (fallbackModel && !models.includes(fallbackModel)) {
+            models.push(fallbackModel);
+        }
+
         let response = null;
         let success = false;
         let lastError = null;
 
-        for (let i = 0; i < apiKeys.length; i++) {
-            try {
-                const ai = new GoogleGenAI({ apiKey: apiKeys[i] });
-                response = await ai.models.generateContent({
-                    model: "gemini-3.6-flash",
-                    contents: prompt,
-                });
-                success = true;
-                break; // Berhasil, keluar dari loop
-            } catch (err) {
-                lastError = err;
-                if (err.message && err.message.includes("429")) {
-                    console.log("[AI] Kuota 429 Limit pada Key #" + (i+1) + "! " + (i+1 < apiKeys.length ? "Pindah ke API Key cadangan #" + (i+2) + "..." : "Semua API Key habis."));
-                } else {
-                    console.log(`[AI] Error tak terduga pada Key #${i+1}: ${err.message}. Mencoba key selanjutnya...`);
+        for (const model of models) {
+            for (let round = 0; round < 3 && !success; round++) {
+                for (let i = 0; i < apiKeys.length && !success; i++) {
+                    try {
+                        const ai = new GoogleGenAI({ apiKey: apiKeys[i] });
+                        response = await ai.models.generateContent({
+                            model,
+                            contents: prompt,
+                        });
+                        success = true;
+                    } catch (err) {
+                        lastError = err;
+                        const message = String(err?.message || err);
+
+                        if (message.includes("429")) {
+                            console.log(`[AI] Kuota 429 pada ${model} Key #${i + 1}. ${i + 1 < apiKeys.length ? "Pindah ke key berikutnya..." : "Semua key sudah dicoba."}`);
+                        } else if (message.includes("503") || message.includes("UNAVAILABLE") || message.includes("high demand")) {
+                            console.log(`[AI] ${model} sedang sibuk (503). Percobaan ${round + 1}/3 dengan Key #${i + 1}...`);
+                        } else {
+                            console.log(`[AI] Error pada ${model} Key #${i + 1}: ${message}. Mencoba key berikutnya...`);
+                        }
+                    }
+                }
+
+                if (!success) {
+                    const delay = 3000 * (round + 1);
+                    console.log(`[AI] Menunggu ${delay / 1000} detik sebelum mengulang...`);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
                 }
             }
+
+            if (success) break;
         }
 
         if (!success) {
-            throw lastError || new Error("Semua API Key gagal memproses permintaan.");
+            throw lastError || new Error("Semua API Key dan model gagal memproses permintaan.");
         }
 
         let jsonText = response.text.replace(/```json/gi, '').replace(/```/gi, '').trim();
