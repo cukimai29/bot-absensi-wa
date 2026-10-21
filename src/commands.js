@@ -373,7 +373,10 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
     else if (rawMsg.message.interactiveResponseMessage) {
       const paramsJson = rawMsg.message.interactiveResponseMessage.nativeFlowResponseMessage?.paramsJson;
       if (paramsJson) {
-        try { bodyText = JSON.parse(paramsJson).id; } catch (e) { }
+        try {
+          const parsed = JSON.parse(paramsJson);
+          bodyText = parsed.id || parsed.selectedId || parsed.rowId || parsed.selectedRowId || "";
+        } catch (e) { }
       }
     }
   }
