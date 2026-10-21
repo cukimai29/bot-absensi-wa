@@ -22,8 +22,6 @@ function getMenuStyle() {
 }
 
 function isButtonMenuEnabledForChat(chatId) {
-  if (isSafeModeEnabled()) return false;
-
   const enabled = (process.env.ENABLE_BUTTONS || "").trim().toLowerCase() === "true";
   if (!enabled) return false;
 
