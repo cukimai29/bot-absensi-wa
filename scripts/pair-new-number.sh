@@ -16,16 +16,29 @@ if ! command -v pm2 >/dev/null 2>&1; then
   exit 1
 fi
 
-printf "Nomor WhatsApp baru (contoh 6281234567890): "
-read -r RAW_NUMBER
-NUMBER="$(printf '%s' "$RAW_NUMBER" | tr -cd '0-9')"
+printf "Kode negara (contoh 62 = Indonesia, 63 = Filipina): "
+read -r RAW_COUNTRY
+COUNTRY_CODE="$(printf '%s' "$RAW_COUNTRY" | tr -cd '0-9')"
 
-if [ "${NUMBER#0}" != "$NUMBER" ]; then
-  NUMBER="62${NUMBER#0}"
+if ! printf '%s' "$COUNTRY_CODE" | grep -Eq '^[1-9][0-9]{0,2}$'; then
+  echo "❌ Kode negara tidak valid. Contoh: 62 atau 63."
+  exit 1
 fi
 
-if ! printf '%s' "$NUMBER" | grep -Eq '^62[0-9]{8,15}$'; then
-  echo "❌ Format nomor tidak valid. Gunakan 62xxxxxxxxxx tanpa +, spasi, atau tanda hubung."
+printf "Nomor WhatsApp tanpa kode negara dan tanpa awalan 0 (contoh 9123456789): "
+read -r RAW_NUMBER
+LOCAL_NUMBER="$(printf '%s' "$RAW_NUMBER" | tr -cd '0-9')"
+LOCAL_NUMBER="${LOCAL_NUMBER#0}"
+
+if ! printf '%s' "$LOCAL_NUMBER" | grep -Eq '^[0-9]{6,13}$'; then
+  echo "❌ Nomor tidak valid. Masukkan nomor lokal tanpa 0 di depan."
+  exit 1
+fi
+
+NUMBER="${COUNTRY_CODE}${LOCAL_NUMBER}"
+
+if [ "${#NUMBER}" -lt 8 ] || [ "${#NUMBER}" -gt 15 ]; then
+  echo "❌ Panjang nomor tidak valid. Gunakan format internasional tanpa +, spasi, atau tanda hubung."
   exit 1
 fi
 
@@ -50,15 +63,16 @@ echo "🧹 Reset session WhatsApp lama..."
 npm run reset-session
 
 echo "⚙️  Menulis konfigurasi aman ke .env..."
-node - "$NUMBER" <<'NODE'
+node - "$NUMBER" "$COUNTRY_CODE" <<'NODE'
 const fs = require('fs');
 const number = process.argv[2];
+const countryCode = process.argv[3];
 const path = '.env';
 let text = fs.readFileSync(path, 'utf8');
 
 const updates = {
   PAIRING_NUMBER: number,
-  PAIRING_COUNTRY_CODE: '62',
+  PAIRING_COUNTRY_CODE: countryCode,
   ENABLE_BUTTONS: 'false',
   MENU_STYLE: 'buttons',
   SAFE_MODE: 'true',

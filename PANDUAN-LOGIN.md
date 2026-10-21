@@ -61,6 +61,8 @@ Aturan penulisan:
 - Gunakan format internasional, contoh `6281234567890`.
 - Jangan pakai `+`, spasi, atau tanda hubung.
 - Kalau nomor ditulis `081234567890`, kode akan otomatis mengubahnya menjadi `6281234567890` selama `PAIRING_COUNTRY_CODE=62`.
+- Untuk nomor luar Indonesia, isi `PAIRING_COUNTRY_CODE` sesuai kode negara (contoh `63` untuk Filipina) dan `PAIRING_NUMBER` dengan kode negara lengkap, misalnya `639123456789`.
+- Script `scripts/pair-new-number.sh` sudah menanyakan kode negara dan nomor lokal, jadi tidak perlu edit manual.
 - Nomor harus nomor WhatsApp yang aktif di HP.
 
 Simpan dengan `Ctrl+O`, lalu `Enter`, lalu keluar dengan `Ctrl+X`.
