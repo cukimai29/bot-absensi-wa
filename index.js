@@ -29,6 +29,7 @@ async function sendPremiumAnnouncement(client, groupId, text) {
 let scheduledJobs = [];
 let isBotStarted = false;
 const SAFE_MODE = (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
+const ATTENDANCE_ONLY = (process.env.ATTENDANCE_ONLY || "").trim().toLowerCase() === "true";
 let isShuttingDown = false;
 
 function cleanupOrphanedChrome() {
@@ -299,24 +300,26 @@ function scheduleTodayClasses(client) {
                 });
                 scheduledJobs.push(job);
 
-                let siagaTotalMins = hour * 60 + minute - 30;
-                if (siagaTotalMins < 0) siagaTotalMins += 24 * 60;
-                let siagaHour = Math.floor(siagaTotalMins / 60) % 24;
-                let siagaMinute = siagaTotalMins % 60;
+                if (!ATTENDANCE_ONLY) {
+                    let siagaTotalMins = hour * 60 + minute - 30;
+                    if (siagaTotalMins < 0) siagaTotalMins += 24 * 60;
+                    let siagaHour = Math.floor(siagaTotalMins / 60) % 24;
+                    let siagaMinute = siagaTotalMins % 60;
 
-                let siagaJob = cron.schedule(`${siagaMinute} ${siagaHour} * * *`, () => {
-                    let greeting = "Pagi";
-                    if (hour >= 11 && hour < 15) greeting = "Siang";
-                    else if (hour >= 15 && hour < 18) greeting = "Sore";
-                    else if (hour >= 18) greeting = "Malam";
+                    let siagaJob = cron.schedule(`${siagaMinute} ${siagaHour} * * *`, () => {
+                        let greeting = "Pagi";
+                        if (hour >= 11 && hour < 15) greeting = "Siang";
+                        else if (hour >= 15 && hour < 18) greeting = "Sore";
+                        else if (hour >= 18) greeting = "Malam";
 
-                    let msg = `🚨 *SIAGA 1: KELAS SEGERA DIMULAI!* 🚨\n\nSelamat ${greeting} rek! ☕\n30 menit lagi kelas *${jadwal.matkul}* (Jam ${jadwal.jam}) akan segera dimulai.\n\nJangan lupa cuci muka, prepare *device*, dan pantau grup buat absen ya! 🏃‍♂️💨`;
-                    sendPremiumAnnouncement(client, process.env.TARGET_GROUP_ID, msg);
-                }, {
-                    scheduled: true,
-                    timezone: "Asia/Jakarta"
-                });
-                scheduledJobs.push(siagaJob);
+                        let msg = `🚨 *SIAGA 1: KELAS SEGERA DIMULAI!* 🚨\n\nSelamat ${greeting} rek! ☕\n30 menit lagi kelas *${jadwal.matkul}* (Jam ${jadwal.jam}) akan segera dimulai.\n\nJangan lupa cuci muka, prepare *device*, dan pantau grup buat absen ya! 🏃‍♂️💨`;
+                        sendPremiumAnnouncement(client, process.env.TARGET_GROUP_ID, msg);
+                    }, {
+                        scheduled: true,
+                        timezone: "Asia/Jakarta"
+                    });
+                    scheduledJobs.push(siagaJob);
+                }
                 console.log(`[JADWAL] -> ${jadwal.matkul} dijadwalkan pada ${jadwal.jam}.`);
             }
         });
@@ -326,9 +329,16 @@ function scheduleTodayClasses(client) {
 }
 
 function setupCronJobs(client) {
-    if (SAFE_MODE) {
+    if (SAFE_MODE && !ATTENDANCE_ONLY) {
         console.log('[SAFE_MODE] Semua pengiriman otomatis dinonaktifkan. Bot hanya membalas command manual.');
         return;
+    }
+
+    if (ATTENDANCE_ONLY) {
+        console.log('[ATTENDANCE] Mode absensi saja aktif: cek absensi otomatis + notif, tanpa briefing/reminder/SIAGA.');
+        if (!SCRAPER_ENABLED) {
+            console.warn('[ATTENDANCE] ATTENDANCE_ONLY=true tapi SCRAPER_ENABLED=false. Set SCRAPER_ENABLED=true agar pengecekan absensi berjalan.');
+        }
     }
 
     scheduleTodayClasses(client);
@@ -350,6 +360,10 @@ function setupCronJobs(client) {
         scheduled: true,
         timezone: "Asia/Jakarta"
     });
+
+    if (ATTENDANCE_ONLY) {
+        return;
+    }
 
     cron.schedule('0 6 * * *', async () => {
         try {
