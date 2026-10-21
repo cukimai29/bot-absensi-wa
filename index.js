@@ -129,6 +129,7 @@ async function startBot() {
         printQRInTerminal: !usePairingCode,
         auth: state,
         keepAliveIntervalMs: Number(process.env.WA_KEEPALIVE_MS || 60000),
+        syncFullHistory: false,
         generateHighQualityLinkPreview: true,
         getMessage: async (key) => {
             if (store) {
@@ -190,6 +191,9 @@ async function startBot() {
                 || '';
             console.log(`[MSG] jid=${msg.key.remoteJid} fromMe=${msg.key.fromMe} type=${m.type} body=${String(preview).slice(0, 80)}`);
         }
+
+        // Hanya proses pesan baru. Pesan history/append jangan dieksekusi ulang.
+        if (m.type !== 'notify') return;
 
         if (!msg.message) return;
         if (msg.key.fromMe) return; // Ignore bot's own messages
