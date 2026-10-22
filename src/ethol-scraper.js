@@ -5,6 +5,7 @@ const { capMentions, isBlockedGroup, isFatalSendError, isValidGroupJid } = requi
 
 const PUPPETEER_LAUNCH_TIMEOUT = Number(process.env.PUPPETEER_LAUNCH_TIMEOUT || 60000);
 const PUPPETEER_PROTOCOL_TIMEOUT = Number(process.env.PUPPETEER_PROTOCOL_TIMEOUT || 120000);
+const PUPPETEER_MEMORY_WAIT_MS = Number(process.env.PUPPETEER_MEMORY_WAIT_MS || 30000);
 const MIN_FREE_MEMORY_MB = Number(process.env.MIN_FREE_MEMORY_MB || 300);
 
 const activeBrowsers = new Set();
@@ -72,9 +73,22 @@ async function closeAllBrowsers() {
 }
 
 async function launchBrowser(overrides = {}) {
-    const availableMb = getAvailableMemoryMB();
-    if (availableMb !== null && availableMb < MIN_FREE_MEMORY_MB) {
-        throw new Error(`RAM tersedia hanya ${availableMb} MB (minimum ${MIN_FREE_MEMORY_MB} MB). Chrome tidak diluncurkan agar tidak OOM.`);
+    const memoryWaitMs = Number.isFinite(PUPPETEER_MEMORY_WAIT_MS)
+        ? Math.max(0, PUPPETEER_MEMORY_WAIT_MS)
+        : 30000;
+    const startedAt = Date.now();
+    let availableMb = getAvailableMemoryMB();
+
+    while (availableMb !== null && availableMb < MIN_FREE_MEMORY_MB) {
+        const remainingMs = memoryWaitMs - (Date.now() - startedAt);
+        if (remainingMs <= 0) {
+            throw new Error(`RAM tersedia hanya ${availableMb} MB (minimum ${MIN_FREE_MEMORY_MB} MB). Chrome tidak diluncurkan agar tidak OOM.`);
+        }
+
+        const waitMs = Math.min(5000, remainingMs);
+        console.log(`[BROWSER] RAM tersedia ${availableMb} MB < ${MIN_FREE_MEMORY_MB} MB; menunggu ${Math.ceil(waitMs / 1000)} detik...`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        availableMb = getAvailableMemoryMB();
     }
 
     const launchOptions = {
@@ -88,7 +102,9 @@ async function launchBrowser(overrides = {}) {
             '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
             '--disable-gpu',
+            '--disable-software-rasterizer',
             '--disable-extensions',
+            '--disable-component-extensions-with-background-pages',
             '--disable-background-networking',
             '--disable-breakpad',
             '--disable-component-update',
@@ -96,7 +112,8 @@ async function launchBrowser(overrides = {}) {
             '--disable-sync',
             '--mute-audio',
             '--no-first-run',
-            '--renderer-process-limit=2',
+            '--renderer-process-limit=1',
+            '--js-flags=--max-old-space-size=128',
             '--blink-settings=imagesEnabled=false',
             '--disable-features=Translate,BackForwardCache,AcceptCHFrame,MediaRouter,OptimizationHints'
         ],

@@ -232,6 +232,50 @@ Screenshot diagnosa disimpan sebagai `debug_diag.png` atau `debug_diag_login.png
 
 Jalankan diagnosa di luar jam kelas agar tidak berebut RAM/Chrome dengan pengecekan otomatis.
 
+### 9.1. `RAM tersedia hanya ... Chrome tidak diluncurkan`
+
+Log seperti ini bukan error login. Chrome sengaja tidak dibuka karena RAM VPS
+di bawah `MIN_FREE_MEMORY_MB`:
+
+```text
+[ETHOL SYNC] Gagal membuka browser: RAM tersedia hanya 293 MB (minimum 300 MB).
+Chrome tidak diluncurkan agar tidak OOM.
+```
+
+Di VPS 892 MB, tambahkan swap 1 GB terlebih dahulu. Swap mencegah Chrome
+membunuh proses lain saat memori memuncak.
+
+```bash
+free -m
+swapon --show
+
+# Lewati tiga baris ini kalau /swapfile sudah ada.
+sudo fallocate -l 1G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+free -m
+```
+
+Setelah swap aktif, turunkan batas RAM Chrome dan restart:
+
+```bash
+cd ~/bot-absensi-wa
+cp .env .env.backup-before-ram-tune
+sed -i 's/^MIN_FREE_MEMORY_MB=.*/MIN_FREE_MEMORY_MB=220/' .env
+grep -E 'MIN_FREE_MEMORY_MB|PUPPETEER_MEMORY_WAIT_MS' .env
+pm2 restart botwaku --update-env
+```
+
+Chrome sekarang menunggu sampai 30 detik (`PUPPETEER_MEMORY_WAIT_MS`) kalau
+RAM sedang pas-pasan. Jangan turunkan `MIN_FREE_MEMORY_MB` tanpa swap; risikonya
+proses lain dibunuh OOM killer. Kalau setelah swap + 220 MB masih sering gagal,
+upgrade VPS ke RAM 2 GB.
+
 ---
 
 ## 10. Kalau muncul "writer Timeout"
