@@ -198,7 +198,43 @@ Kalau mau, fitur hidetag otomatis bisa dinonaktifkan atau dijadwalkan ulang agar
 
 ---
 
-## 9. Kalau muncul "writer Timeout"
+## 9. Kalau absensi tidak terkirim
+
+Cek log saat jam kelas. Kalau berulang seperti ini:
+
+```text
+[INTENSIF] Tombol notifikasi tidak muncul dalam 15s (URL: ...)
+[INTENSIF] [DIAG] login=true ...
+[INTENSIF] Login gagal: masih di halaman login...
+```
+
+berarti scraper tidak berhasil masuk ke ETHOL, atau selector halaman portal berubah.
+
+Jalankan diagnosa manual (tidak mengirim WhatsApp dan tidak mencatat absensi):
+
+```bash
+npm run diagnose-portal
+```
+
+Untuk akun kedua:
+
+```bash
+npm run diagnose-portal -- second
+```
+
+Perhatikan baris `[DIAG]`:
+
+- `login=true` atau URL masih `login.pens.ac.id` -> username/password salah, akun terkunci, atau portal meminta captcha.
+- `login=false` tetapi `snippet`/`dosen` kosong -> notifikasi tidak muncul di beranda; pastikan akun terdaftar di matkul tersebut.
+- `snippet` berisi teks notifikasi tetapi bot tidak mendeteksi -> kirim teks snippet-nya. Polanya sekarang menerima `presensi`/`absensi` dan `matakuliah`/`mata kuliah`.
+
+Screenshot diagnosa disimpan sebagai `debug_diag.png` atau `debug_diag_login.png` di folder bot.
+
+Jalankan diagnosa di luar jam kelas agar tidak berebut RAM/Chrome dengan pengecekan otomatis.
+
+---
+
+## 10. Kalau muncul "writer Timeout"
 
 Log seperti ini:
 
@@ -235,7 +271,7 @@ Kalau `Effective allowed groups=NONE`, isi `TARGET_GROUP_ID` atau `COMMAND_ALLOW
 
 ---
 
-## 10. Keamanan
+## 11. Keamanan
 
 - Jangan bagikan file `.env` karena berisi password ETHOL dan API key.
 - Jangan bagikan folder `session/` karena berisi kredensial WhatsApp.
