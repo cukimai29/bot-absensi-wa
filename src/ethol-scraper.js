@@ -217,6 +217,54 @@ async function openNotifications(page, label = '[PORTAL]') {
     return false;
 }
 
+// Dipakai oleh checkPortal, intensiveCheckPortal, dan diagnosePortal supaya
+// logika pembacaan notifikasi selalu sama.
+async function bacaNotifikasiTerbuka(page) {
+    return page.evaluate(() => {
+        const hasil = [];
+        const regex = /Dosen telah membuka (?:presensi|absensi) untuk mata\s*kuliah\s*([^\n\r]+)/i;
+        const elements = Array.from(document.querySelectorAll('div, p, span, li, a, button, h1, h2, h3, h4, h5, h6'));
+
+        for (let el of elements) {
+            const raw = el.textContent || '';
+            const match = raw.match(regex);
+            if (!match) continue;
+
+            const hasChildWithMatch = Array.from(el.children).some(child => regex.test(child.textContent || ''));
+            if (hasChildWithMatch) continue;
+
+            let teks = raw.replace(/\s+/g, ' ').trim();
+
+            // Walk up the DOM untuk mencari teks waktu.
+            let currentEl = el;
+            let parentText = teks.toLowerCase();
+            let attempts = 0;
+            while (currentEl && currentEl !== document.body && attempts < 6) {
+                let txt = currentEl.textContent.toLowerCase();
+                if (txt.includes('lalu') || txt.includes('kemarin') || txt.includes('hari') || txt.includes('jam') || txt.includes('menit')) {
+                    parentText = txt;
+                    break;
+                }
+                currentEl = currentEl.parentElement;
+                attempts++;
+            }
+
+            // Abaikan notifikasi dari hari-hari sebelumnya.
+            if (parentText.includes('hari yang lalu') || parentText.includes('kemarin') || parentText.includes('minggu yang lalu') || parentText.includes('bulan yang lalu') || parentText.includes('tahun yang lalu')) {
+                continue;
+            }
+
+            let namaMatkul = (match[1] || '').replace(/\s+/g, ' ').trim();
+            if (!namaMatkul) continue;
+            let tanggalHariIni = new Date().toLocaleDateString('id-ID');
+            if (!hasil.find(h => h.matkul === namaMatkul)) {
+                hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
+            }
+        }
+        return hasil;
+    });
+}
+
 let useSecondAccount = false;
 
 function getLastUsedAccount() {
@@ -365,49 +413,7 @@ async function checkPortal(client) {
         await page.screenshot({ path: 'debug_portal.png' });
         console.log("Screenshot halaman saat ini telah disimpan sebagai debug_portal.png");
 
-        const daftarAbsenTerbuka = await page.evaluate(() => {
-            const hasil = [];
-            const regex = /Dosen telah membuka (?:presensi|absensi) untuk mata\s*kuliah\s*([^\n\r]+)/i;
-            const elements = Array.from(document.querySelectorAll('div, p, span, li, a, button, h1, h2, h3, h4, h5, h6'));
-
-            for (let el of elements) {
-                const raw = el.textContent || '';
-                const match = raw.match(regex);
-                if (!match) continue;
-
-                const hasChildWithMatch = Array.from(el.children).some(child => regex.test(child.textContent || ''));
-                if (hasChildWithMatch) continue;
-
-                let teks = raw.replace(/\s+/g, ' ').trim();
-
-                // Walk up the DOM untuk mencari teks waktu.
-                let currentEl = el;
-                let parentText = teks.toLowerCase();
-                let attempts = 0;
-                while (currentEl && currentEl !== document.body && attempts < 6) {
-                    let txt = currentEl.textContent.toLowerCase();
-                    if (txt.includes('lalu') || txt.includes('kemarin') || txt.includes('hari') || txt.includes('jam') || txt.includes('menit')) {
-                        parentText = txt;
-                        break;
-                    }
-                    currentEl = currentEl.parentElement;
-                    attempts++;
-                }
-
-                // Abaikan notifikasi dari hari-hari sebelumnya.
-                if (parentText.includes('hari yang lalu') || parentText.includes('kemarin') || parentText.includes('minggu yang lalu') || parentText.includes('bulan yang lalu') || parentText.includes('tahun yang lalu')) {
-                    continue;
-                }
-
-                let namaMatkul = (match[1] || '').replace(/\s+/g, ' ').trim();
-                if (!namaMatkul) continue;
-                let tanggalHariIni = new Date().toLocaleDateString('id-ID');
-                if (!hasil.find(h => h.matkul === namaMatkul)) {
-                    hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
-                }
-            }
-            return hasil;
-        });
+        const daftarAbsenTerbuka = await bacaNotifikasiTerbuka(page);
 
         if (daftarAbsenTerbuka && daftarAbsenTerbuka.length > 0) {
             const { loadData } = require('./database');
@@ -576,49 +582,7 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
                 console.log('[INTENSIF] Screenshot halaman disimpan: debug_intensif.png');
             }
 
-            const daftarAbsenTerbuka = await page.evaluate(() => {
-                const hasil = [];
-                const regex = /Dosen telah membuka (?:presensi|absensi) untuk mata\s*kuliah\s*([^\n\r]+)/i;
-                const elements = Array.from(document.querySelectorAll('div, p, span, li, a, button, h1, h2, h3, h4, h5, h6'));
-
-                for (let el of elements) {
-                    const raw = el.textContent || '';
-                    const match = raw.match(regex);
-                    if (!match) continue;
-
-                    const hasChildWithMatch = Array.from(el.children).some(child => regex.test(child.textContent || ''));
-                    if (hasChildWithMatch) continue;
-
-                    let teks = raw.replace(/\s+/g, ' ').trim();
-
-                    // Walk up the DOM untuk mencari teks waktu.
-                    let currentEl = el;
-                    let parentText = teks.toLowerCase();
-                    let attempts = 0;
-                    while (currentEl && currentEl !== document.body && attempts < 6) {
-                        let txt = currentEl.textContent.toLowerCase();
-                        if (txt.includes('lalu') || txt.includes('kemarin') || txt.includes('hari') || txt.includes('jam') || txt.includes('menit')) {
-                            parentText = txt;
-                            break;
-                        }
-                        currentEl = currentEl.parentElement;
-                        attempts++;
-                    }
-
-                    // Abaikan notifikasi dari hari-hari sebelumnya.
-                    if (parentText.includes('hari yang lalu') || parentText.includes('kemarin') || parentText.includes('minggu yang lalu') || parentText.includes('bulan yang lalu') || parentText.includes('tahun yang lalu')) {
-                        continue;
-                    }
-
-                    let namaMatkul = (match[1] || '').replace(/\s+/g, ' ').trim();
-                    if (!namaMatkul) continue;
-                    let tanggalHariIni = new Date().toLocaleDateString('id-ID');
-                    if (!hasil.find(h => h.matkul === namaMatkul)) {
-                        hasil.push({ matkul: namaMatkul, tanggal: tanggalHariIni });
-                    }
-                }
-                return hasil;
-            });
+            const daftarAbsenTerbuka = await bacaNotifikasiTerbuka(page);
 
             if (daftarAbsenTerbuka && daftarAbsenTerbuka.length > 0) {
                 for (let absen of daftarAbsenTerbuka) {
@@ -709,6 +673,17 @@ async function diagnosePortal(account = 'main') {
         await new Promise(resolve => setTimeout(resolve, 5000));
         const opened = await openNotifications(page, '[DIAG]');
         const diag = await logPortalDiagnostics(page, '[DIAG]');
+
+        const terdeteksi = await bacaNotifikasiTerbuka(page);
+        if (terdeteksi.length > 0) {
+            console.log('[DIAG] Notifikasi yang cocok dengan pola bot:');
+            for (const item of terdeteksi) {
+                console.log(`[DIAG]   - ${item.matkul}`);
+            }
+        } else {
+            console.log('[DIAG] Tidak ada teks notifikasi yang cocok dengan pola bot.');
+        }
+
         await page.screenshot({ path: 'debug_diag.png' }).catch(() => {});
 
         console.log(`[DIAG] Selesai. Panel notifikasi terbuka=${opened}. Screenshot: debug_diag.png`);
