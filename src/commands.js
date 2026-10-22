@@ -6,7 +6,7 @@ const {
 } = require("./ethol-scraper");
 const { GoogleGenAI } = require("@google/genai");
 const googleTTS = require("google-tts-api");
-const { downloadMediaMessage, generateWAMessageFromContent } = require("@whiskeysockets/baileys");
+const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
 const {
   areReactionsEnabled,
@@ -83,33 +83,49 @@ function buildButtonMenuContent(header, title, footer, buttons) {
   };
 }
 
-function buildSingleSelectMenuContent(header, title, footer, buttonText, sections) {
+function buildClassicListContent(header, title, footer, buttonText, sections) {
   return {
-    interactiveMessage: {
-      header,
-      title,
-      footer,
-      buttons: [
-        {
-          name: "single_select",
-          buttonParamsJson: JSON.stringify({
-            title: buttonText,
-            sections: sections.map((section) => ({
-              title: section.title,
-              rows: section.rows.map((row) => ({
-                header: row.title,
-                title: row.title,
-                description: row.description || "",
-                id: row.id,
-              })),
-            })),
-          }),
-        },
-      ],
-    },
+    header,
+    title,
+    footer,
+    buttonText,
+    sections: sections.map((section) => ({
+      title: section.title,
+      rows: section.rows.map((row) => ({
+        title: row.title,
+        description: row.description || "",
+        rowId: row.id,
+      })),
+    })),
   };
 }
 
+// Daftar menu klasik (ListMessage) kompatibel iPhone dan Android.
+// Native flow single_select hanya tampil di Android, jadi jangan dipakai
+// untuk menu list utama.
+async function sendClassicListMenu(client, chatId, content) {
+  return client.sendMessage(
+    chatId,
+    {
+      text: content.title,
+      title: content.header,
+      footer: content.footer,
+      buttonText: content.buttonText,
+      sections: content.sections,
+    },
+    {
+      additionalNodes: [
+        {
+          tag: "biz",
+          attrs: {},
+          content: [{ tag: "list", attrs: { type: "product_list", v: "2" } }],
+        },
+      ],
+    }
+  );
+}
+
+// WhatsApp classic list maksimal 10 baris total. Saat ini 4 + 3 + 3 = 10.
 const MAIN_MENU_SECTIONS = [
   {
     title: "📚 Akademik",
@@ -749,8 +765,10 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         const menuStyle = getMenuStyle();
         console.log(`[BUTTONS] Mengirim menu utama (${menuStyle}) ke ${msg.from}`);
         if (menuStyle === "list") {
-          await msg.reply(
-            buildSingleSelectMenuContent(
+          await sendClassicListMenu(
+            client,
+            msg.from,
+            buildClassicListContent(
               "🤖 SMARTBOT ABSENSI",
               "Pilih menu yang ingin dibuka:",
               "SMARTBOT by RzkyAds",
@@ -774,6 +792,10 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         }
       } catch (err) {
         console.error(`[BUTTONS] Gagal mengirim menu utama: ${err.message}. Fallback ke teks.`);
+        if (isFatalSendError(err)) {
+          console.error("[BUTTONS] Writer/koneksi bermasalah; fallback teks dibatalkan.");
+          return;
+        }
         await msg.reply(menuPesan);
       }
     } else {
@@ -788,8 +810,10 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         const menuStyle = getMenuStyle();
         console.log(`[BUTTONS] Mengirim ${msg.body.toLowerCase()} (${menuStyle}) ke ${msg.from}`);
         if (menuStyle === "list") {
-          await msg.reply(
-            buildSingleSelectMenuContent(
+          await sendClassicListMenu(
+            client,
+            msg.from,
+            buildClassicListContent(
               categoryMenu.header,
               categoryMenu.title,
               categoryMenu.footer,
@@ -809,6 +833,10 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         }
       } catch (err) {
         console.error(`[BUTTONS] Gagal mengirim ${msg.body.toLowerCase()}: ${err.message}. Fallback ke teks.`);
+        if (isFatalSendError(err)) {
+          console.error("[BUTTONS] Writer/koneksi bermasalah; fallback teks dibatalkan.");
+          return;
+        }
         await msg.reply(categoryMenu.fallbackText);
       }
     } else {

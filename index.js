@@ -425,7 +425,7 @@ function scheduleTodayClasses(client) {
 
 function setupCronJobs(client) {
     if (SAFE_MODE && !ATTENDANCE_ONLY) {
-        console.log('[SAFE_MODE] Semua pengiriman otomatis dinonaktifkan. Bot hanya membalas command manual.');
+        console.warn('[SAFE_MODE] Cron otomatis dimatikan karena SAFE_MODE=true dan ATTENDANCE_ONLY=false. Set SAFE_MODE=false untuk mengaktifkan briefing/reminder/SIAGA/portal acak.');
         return;
     }
 
@@ -437,6 +437,10 @@ function setupCronJobs(client) {
     }
 
     scheduleTodayClasses(client);
+
+    if (!ATTENDANCE_ONLY) {
+        console.log('[CRON] Briefing pagi 06:00, reminder tugas 07:00, SIAGA, ganti minggu Senin 00:00, dan cek portal acak aktif.');
+    }
 
     cron.schedule('1 0 * * *', async () => {
         if (!SCRAPER_ENABLED) {

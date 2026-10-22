@@ -29,6 +29,24 @@ function acquireScraperLock(taskName) {
     return true;
 }
 
+async function acquireScraperLockWait(taskName, maxWaitMs = 5 * 60 * 1000) {
+    const startedAt = Date.now();
+    let logged = false;
+    while (scraperBusy) {
+        if (!logged) {
+            console.log(`[SCRAPER] ${taskName} menunggu tugas scraping lain selesai...`);
+            logged = true;
+        }
+        if (Date.now() - startedAt >= maxWaitMs) {
+            console.log(`[SCRAPER] ${taskName} dilewati: menunggu ${Math.round(maxWaitMs / 60000)} menit, tugas scraping lain masih berjalan.`);
+            return false;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    scraperBusy = true;
+    return true;
+}
+
 function releaseScraperLock() {
     scraperBusy = false;
 }
@@ -470,7 +488,9 @@ async function checkPortal(client) {
 }
 
 async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 * 60 * 1000) {
-    if (!acquireScraperLock('Cek absen intensif')) return;
+    // Cek absensi lebih penting daripada cek portal acak. Kalau cek acak
+    // sedang berjalan, tunggu sebentar agar absensi tidak terlewat.
+    if (!(await acquireScraperLockWait('Cek absen intensif'))) return;
 
     let durationMins = Math.round(customDurationMs / 60000);
     console.log(`[INTENSIF] Memulai pengecekan intensif ${durationMins} menit untuk matkul: ${targetMatkul}`);
