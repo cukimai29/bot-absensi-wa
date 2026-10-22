@@ -21,7 +21,7 @@
   "type": "commonjs",
   "dependencies": {
     "@google/genai": "^2.9.0",
-    "@whiskeysockets/baileys": "github:FallEzz/baileys-corp",
+    "@whiskeysockets/baileys": "github:FallEzz/baileys-corp#e14d53b4d1b13b574c8f7852e29fb9fd101f8d61",
     "dotenv": "^17.4.2",
     "google-tts-api": "^2.0.2",
     "libsignal": "^6.0.0",

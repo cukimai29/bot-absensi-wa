@@ -8,20 +8,52 @@ const { GoogleGenAI } = require("@google/genai");
 const googleTTS = require("google-tts-api");
 const { downloadMediaMessage, generateWAMessageFromContent } = require("@whiskeysockets/baileys");
 const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
+const {
+  areReactionsEnabled,
+  capMentions,
+  getCommandName,
+  isCommandAllowedInChat,
+  isFatalSendError,
+  isSafeModeBlockedCommand,
+} = require("./chat-guard");
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
 
-function isSafeModeEnabled() {
-  return (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
+const blockedGroupLogAt = new Map();
+const safeModeNoticeAt = new Map();
+const safeModeBlockLogAt = new Map();
+const BLOCKED_GROUP_LOG_INTERVAL_MS = 5 * 60 * 1000;
+const SAFE_MODE_NOTICE_INTERVAL_MS = 10 * 60 * 1000;
+const SAFE_MODE_BLOCK_LOG_INTERVAL_MS = 60 * 1000;
+
+function logBlockedGroup(chatId, preview) {
+  const now = Date.now();
+  const last = blockedGroupLogAt.get(chatId) || 0;
+  if (now - last < BLOCKED_GROUP_LOG_INTERVAL_MS) return;
+  blockedGroupLogAt.set(chatId, now);
+  const safePreview = String(preview || "").replace(/\s+/g, " ").slice(0, 80);
+  console.log(`[GUARD] Grup ${chatId} diabaikan (tidak ada di allowlist / ada di denylist). Preview: ${safePreview || "(media/kosong)"}`);
 }
 
-function isCommandAllowedInChat(chatId) {
-  const raw = (process.env.COMMAND_ALLOWED_GROUPS || "").trim();
-  if (!raw) return true;
+function logBlockedCommand(chatId, command) {
+  const now = Date.now();
+  const key = `${chatId}:${command}`;
+  const last = safeModeBlockLogAt.get(key) || 0;
+  if (now - last < SAFE_MODE_BLOCK_LOG_INTERVAL_MS) return;
+  safeModeBlockLogAt.set(key, now);
+  console.log(`[SAFE_MODE] Perintah ${command} dari ${chatId} diblokir.`);
+}
 
-  const allowed = raw.split(",").map((id) => id.trim()).filter(Boolean);
-  return allowed.includes(chatId);
+async function sendSafeModeNotice(client, chatId, rawMsg) {
+  const now = Date.now();
+  const last = safeModeNoticeAt.get(chatId) || 0;
+  if (now - last < SAFE_MODE_NOTICE_INTERVAL_MS) return;
+  safeModeNoticeAt.set(chatId, now);
+  const text = "🛡️ *Mode aman aktif.* Perintah media/pengiriman massal dimatikan sementara. Bot hanya membalas command seperti *.menu*, *.jadwal*, dan *.tugas*.";
+  await client.sendMessage(chatId, { text }, { quoted: rawMsg }).catch((err) => {
+    console.error(`[SAFE_MODE] Gagal mengirim notice ke ${chatId}:`, err?.message || err);
+  });
 }
 
 function getMenuStyle() {
@@ -359,11 +391,12 @@ const chatMemory = new Map();
 
 async function handleMessage(client, rawMsg, reloadScheduler = null) {
   if (!rawMsg.message) return;
-  const _chatId = rawMsg.key.remoteJid;
-  const _senderId = rawMsg.key.participant || rawMsg.key.remoteJid;
+  const _chatId = rawMsg.key?.remoteJid || '';
+  const _senderId = rawMsg.key?.participant || _chatId;
   const _isGroup = _chatId.endsWith('@g.us');
 
-  if (_isGroup && !isCommandAllowedInChat(_chatId)) {
+  // Jangan pernah membalas status, broadcast, atau newsletter.
+  if (!_chatId || _chatId === 'status@broadcast' || _chatId.endsWith('@newsletter') || _chatId.endsWith('@broadcast')) {
     return;
   }
 
@@ -398,6 +431,23 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
     console.log(`[BUTTONS] Respons tombol dari ${_senderId}: ${bodyText || "(kosong)"}`);
   }
 
+  // Guard grup: fail-closed saat SAFE_MODE, plus denylist grup bermasalah.
+  if (_isGroup && !isCommandAllowedInChat(_chatId)) {
+    logBlockedGroup(_chatId, bodyText);
+    return;
+  }
+
+  const isCommand = bodyText.startsWith('.');
+
+  if (isCommand) {
+    console.log(`[CMD] chat=${_chatId} sender=${_senderId} cmd=${bodyText.slice(0, 80)}`);
+    if (isSafeModeBlockedCommand(bodyText)) {
+      logBlockedCommand(_chatId, getCommandName(bodyText));
+      await sendSafeModeNotice(client, _chatId, rawMsg);
+      return;
+    }
+  }
+
   // Simpan pesan ke memori pasif
   if (bodyText && bodyText.trim().length > 0 && bodyText.length < 500) {
     if (!chatMemory.has(_chatId)) chatMemory.set(_chatId, []);
@@ -413,9 +463,6 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
     }
   }
 
-  // Cek apakah ini sebuah perintah kaku (dimulai dengan .)
-  const isCommand = bodyText.startsWith('.');
-  
   // Anti-Spam Check (respons tombol/list tidak perlu cooldown)
   if (isCommand && !isInteractiveResponse) {
     const now = Date.now();
@@ -433,7 +480,7 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
     userCooldowns.set(_senderId, now);
     
     // Smart React: Tanda Sedang Diproses (Hanya di Grup untuk menghindari error E2E)
-    if (_isGroup) {
+    if (_isGroup && areReactionsEnabled()) {
       await client.sendMessage(_chatId, { react: { text: "⏳", key: rawMsg.key } }).catch(()=>{});
     }
   }
@@ -468,6 +515,7 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
     },
 
     react: async (emoji) => {
+      if (!areReactionsEnabled()) return null;
       return await client.sendMessage(_chatId, { react: { text: emoji, key: rawMsg.key } });
     },
 
@@ -475,22 +523,25 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
       return {
         isGroup: _isGroup,
         sendStateTyping: async () => {
-          if (_isGroup) {
-            await client.sendPresenceUpdate('available', _chatId).catch(()=>{});
-            await client.sendPresenceUpdate('composing', _chatId).catch(()=>{});
-          }
+          // Cukup 'composing'; 'available' sebelumnya dikirim terpisah dan
+          // hanya menambah satu stanza keluar untuk setiap balasan.
+          if (_isGroup) await client.sendPresenceUpdate('composing', _chatId).catch(()=>{});
         },
         sendStateRecording: async () => {
-          if (_isGroup) {
-            await client.sendPresenceUpdate('available', _chatId).catch(()=>{});
-            await client.sendPresenceUpdate('recording', _chatId).catch(()=>{});
-          }
+          if (_isGroup) await client.sendPresenceUpdate('recording', _chatId).catch(()=>{});
         },
         clearState: async () => {
           if (_isGroup) await client.sendPresenceUpdate('paused', _chatId).catch(()=>{});
-        },
-        participants: _isGroup ? (await client.groupMetadata(_chatId)).participants : []
+        }
       };
+    },
+
+    // Dipanggil hanya oleh command yang benar-benar butuh daftar anggota.
+    // Reply/typing tidak perlu groupMetadata, jadi query-nya tidak dilakukan
+    // untuk setiap balasan (ini mengurangi beban koneksi dan risiko timeout).
+    getParticipants: async () => {
+      if (!_isGroup) return [];
+      return (await client.groupMetadata(_chatId)).participants;
     },
 
     downloadMedia: async () => {
@@ -528,23 +579,25 @@ async function handleMessage(client, rawMsg, reloadScheduler = null) {
       const delay = Math.floor(Math.random() * 2000) + 1500;
       await new Promise((resolve) => setTimeout(resolve, delay));
       await chat.clearState();
-      if (_isGroup) await msg.react('✅').catch(()=>{});
+    } catch (err) {
+      console.error(`[REPLY] Gagal menyiapkan status mengetik untuk ${_chatId}:`, err?.message || err);
+    }
+
+    if (_isGroup && areReactionsEnabled()) {
+      await msg.react('✅').catch(()=>{});
+    }
+
+    try {
       return await originalReply(content, chatId, options);
     } catch (err) {
-      if (_isGroup) await msg.react('❌').catch(()=>{});
-      return await originalReply(content, chatId, options);
+      // Jangan retry pengiriman di sini. Retry pada saat writer macet hanya
+      // menambah antrean dan memperparah timeout. Biarkan error tercatat sekali.
+      console.error(`[REPLY] Gagal mengirim balasan ke ${_chatId}:`, err?.message || err);
+      return null;
     }
   };
 
   const chatId = msg.from;
-
-  if (isSafeModeEnabled()) {
-    const blockedCommands = [".testabsen", ".testkas", ".hidetag", ".testnotif", ".cekportal"];
-    if (blockedCommands.some((cmd) => msg.body.toLowerCase().startsWith(cmd))) {
-      await msg.reply("🛡️ *Mode aman aktif.* Perintah pengiriman massal/otomatis dimatikan sementara. Bot hanya membalas command seperti *.menu*, *.jadwal*, dan *.tugas*.");
-      return;
-    }
-  }
 
   if (activeGames[chatId]) {
     let game = activeGames[chatId];
@@ -899,7 +952,11 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       const options = _isGroup ? { quoted: fakeVerif } : {};
       await client.sendMessage(msg.from, media, options);
     } catch (err) {
-      console.error("Gagal mengirim file, mencoba fallback teks biasa:", err);
+      console.error("Gagal mengirim file, mencoba fallback teks biasa:", err?.message || err);
+      if (isFatalSendError(err)) {
+        console.error("[ALLABSENSI] Writer/koneksi bermasalah; fallback teks dibatalkan agar tidak menambah antrean.");
+        return;
+      }
       // Fallback: Jika WhatsApp memblokir pengiriman file (error 429), kirim sebagai teks
       msg.reply(`⚠️ Gagal mengirim file dokumen (sedang terkena limit dari WhatsApp). Berikut adalah rekapnya:\n\n${pesan}`);
     } finally {
@@ -1076,12 +1133,14 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
   if (isCmdAdmin || isCmdOwner) {
     let isGroupAdmin = false;
     try {
-      const chat = await msg.getChat();
-      if (chat.isGroup) {
-        const participant = chat.participants.find(
-          (p) => p.id._serialized === senderId,
+      if (_isGroup) {
+        const participants = await msg.getParticipants();
+        const normalizeJid = (jid) => String(jid || "").split("@")[0].split(":")[0];
+        const senderNumber = normalizeJid(senderId);
+        const participant = participants.find(
+          (p) => normalizeJid(p.id?._serialized || p.id) === senderNumber,
         );
-        if (participant && (participant.isAdmin || participant.isSuperAdmin)) {
+        if (participant && (participant.admin === "admin" || participant.admin === "superadmin" || participant.isAdmin || participant.isSuperAdmin)) {
           isGroupAdmin = true;
         }
       }
@@ -1114,9 +1173,16 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
           caption: `📸 *Layar Portal ETHOL Saat Ini*\n\nAkun yang aktif terakhir: *${akun}*`
         };
         const options = targetGroup.endsWith('@g.us') ? { quoted: fakeVerif } : {};
-        client.sendMessage(targetGroup, media, options);
-        if (msg.from !== targetGroup) {
-          msg.reply("✅ Screenshot portal telah dikirim ke grup testing.");
+        try {
+          await client.sendMessage(targetGroup, media, options);
+          if (msg.from !== targetGroup) {
+            msg.reply("✅ Screenshot portal telah dikirim ke grup testing.");
+          }
+        } catch (err) {
+          console.error("[CEKPORTAL] Gagal mengirim screenshot:", err?.message || err);
+          if (!isFatalSendError(err)) {
+            msg.reply("❌ Gagal mengirim screenshot portal ke grup testing.");
+          }
         }
       } else {
         msg.reply(
@@ -1387,13 +1453,14 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       let pesanTeks = msg.body.substring(".hidetag".length).trim();
       if (!pesanTeks) pesanTeks = "Perhatian seluruh anggota grup!";
 
-      const chat = await msg.getChat();
-      if (!chat.isGroup) {
+      if (!_isGroup) {
         msg.reply("Perintah ini hanya bisa digunakan di dalam grup!");
         return;
       }
 
-      let participants = chat.participants.map((p) => p.id);
+      const participants = capMentions(
+        (await msg.getParticipants()).map((p) => p.id?._serialized || p.id),
+      );
       await client.sendMessage(msg.from, {
         text: `🔊 *PENGUMUMAN*\n\n${pesanTeks}`,
         mentions: participants,
@@ -1461,9 +1528,12 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         };
         const options = _isGroup ? { quoted: fakeVerif } : {};
         await client.sendMessage(msg.from, media, options);
-        await msg.react('✅');
+        await msg.react('✅').catch(()=>{});
       } catch (e) {
-         console.error("FFMPEG conversion failed, falling back to MP3:", e);
+         // Kalau kegagalannya dari pengiriman (writer timeout / koneksi), jangan
+         // mencoba kirim audio kedua. Itu justru menggandakan beban writer.
+         if (isFatalSendError(e) || String(e?.message || e).includes('[GUARD]')) throw e;
+         console.error("FFMPEG conversion failed, falling back to MP3:", e?.message || e);
          const media = { 
             audio: Buffer.from(base64, "base64"), 
             mimetype: "audio/mp4", 
@@ -1471,16 +1541,20 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
          };
          const options = _isGroup ? { quoted: fakeVerif } : {};
          await client.sendMessage(msg.from, media, options);
-         await msg.react('✅');
+         await msg.react('✅').catch(()=>{});
       } finally {
          if (fs.existsSync(tempMp3)) fs.unlinkSync(tempMp3);
          if (fs.existsSync(tempMp4)) fs.unlinkSync(tempMp4);
          await chat.clearState();
       }
     } catch (err) {
-      console.error(err);
+      console.error("[SUARA]", err?.message || err);
+      if (isFatalSendError(err)) {
+        console.error("[SUARA] Writer/koneksi bermasalah; balasan teks dibatalkan agar tidak menambah antrean.");
+        return;
+      }
       msg.reply("Maaf, terjadi kesalahan saat memproses teks ke suara.");
-      await msg.react('❌');
+      await msg.react('❌').catch(()=>{});
     }
   }
 
@@ -1781,7 +1855,11 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       const memeMedia = { image: Buffer.from(memeBase64, "base64") };
       await client.sendMessage(msg.from, memeMedia);
     } catch (err) {
-      console.error("Gagal membuat meme:", err);
+      console.error("Gagal membuat meme:", err?.message || err);
+      if (isFatalSendError(err)) {
+        console.error("[MEME] Writer/koneksi bermasalah; balasan teks dibatalkan.");
+        return;
+      }
       msg.reply("Terjadi kesalahan saat membuat meme.");
     }
   }
@@ -1797,7 +1875,11 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       const nulisMedia = { image: Buffer.from(nulisBase64, "base64") };
       await client.sendMessage(msg.from, nulisMedia);
     } catch (err) {
-      console.error("Gagal nulis:", err);
+      console.error("Gagal nulis:", err?.message || err);
+      if (isFatalSendError(err)) {
+        console.error("[NULIS] Writer/koneksi bermasalah; balasan teks dibatalkan.");
+        return;
+      }
       msg.reply("Maaf, tintanya habis (terjadi kesalahan sistem).");
     }
   }
@@ -1857,9 +1939,13 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       const media = { audio: Buffer.from(base64, "base64"), ptt: true };
       await client.sendMessage(msg.from, media);
     } catch (err) {
-      console.error(err);
-      msg.reply("Yah, speakernya rusak (gagal memutar lirik).");
+      console.error("[TEBAKLAGU]", err?.message || err);
       delete activeGames[chatId];
+      if (isFatalSendError(err)) {
+        console.error("[TEBAKLAGU] Writer/koneksi bermasalah; balasan teks dibatalkan agar tidak menambah antrean.");
+        return;
+      }
+      msg.reply("Yah, speakernya rusak (gagal memutar lirik).");
     }
   }
 
@@ -1877,7 +1963,11 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         'END:VCARD';
       await client.sendMessage(msg.from, { contacts: { displayName: 'RzkyAds', contacts: [{ vcard }] } });
     } catch (err) {
-      console.error("Gagal mengirim kontak owner:", err);
+      console.error("Gagal mengirim kontak owner:", err?.message || err);
+      if (isFatalSendError(err)) {
+        console.error("[OWNER] Writer/koneksi bermasalah; balasan teks dibatalkan.");
+        return;
+      }
       msg.reply("Nomor Owner (RzkyAds): 085704682918");
     }
   }
@@ -1918,7 +2008,11 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
         const options = _isGroup ? { quoted: fakeVerif } : {};
         await client.sendMessage(msg.from, { sticker: webpBuffer }, options);
       } catch (err) {
-        console.error("Gagal mengirim stiker:", err);
+        console.error("Gagal mengirim stiker:", err?.message || err);
+        if (isFatalSendError(err)) {
+          console.error("[STIKER] Writer/koneksi bermasalah; balasan teks dibatalkan.");
+          return;
+        }
         msg.reply("Maaf, terjadi kesalahan saat membuat stiker.");
       }
     } else {

@@ -7,19 +7,38 @@ const cron = require('node-cron');
 const { loadData, saveData } = require('./src/database');
 const { checkPortal, intensiveCheckPortal, syncJadwalTugas, closeAllBrowsers } = require('./src/ethol-scraper');
 const { handleMessage } = require('./src/commands');
+const {
+    capMentions,
+    getBaileysVersion,
+    getBlockedGroups,
+    getEffectiveAllowedGroups,
+    guardOutgoingMessage,
+    isBlockedGroup,
+    isFatalSendError,
+    isSafeModeEnabled,
+    withTimeout,
+} = require('./src/chat-guard');
 
 async function sendPremiumAnnouncement(client, groupId, text) {
     if (!groupId) return;
+    if (isBlockedGroup(groupId)) {
+        console.warn(`[ANNOUNCE] Grup ${groupId} diblokir; pengumuman tidak dikirim.`);
+        return;
+    }
     try {
         const fakeVerif = {
             key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: groupId },
             message: { conversation: "SMARTBOT by RzkyAds" }
         };
         let metadata = await client.groupMetadata(groupId);
-        let mentions = metadata.participants.map(p => p.id);
+        let mentions = capMentions(metadata.participants.map(p => p.id));
         await client.sendMessage(groupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
     } catch (err) {
-        console.error('Gagal mengirim premium announcement:', err);
+        console.error('Gagal mengirim premium announcement:', err?.message || err);
+        if (isFatalSendError(err)) {
+            console.error('[ANNOUNCE] Writer/koneksi bermasalah; fallback dibatalkan agar tidak memperparah timeout.');
+            return;
+        }
         try {
             await client.sendMessage(groupId, { text: text });
         } catch (e) {}
@@ -28,7 +47,7 @@ async function sendPremiumAnnouncement(client, groupId, text) {
 
 let scheduledJobs = [];
 let isBotStarted = false;
-const SAFE_MODE = (process.env.SAFE_MODE || "").trim().toLowerCase() === "true";
+const SAFE_MODE = isSafeModeEnabled();
 const ATTENDANCE_ONLY = (process.env.ATTENDANCE_ONLY || "").trim().toLowerCase() === "true";
 let isShuttingDown = false;
 
@@ -101,6 +120,69 @@ function maskPhone(number) {
     return `${number.slice(0, 4)}****${number.slice(-3)}`;
 }
 
+function logSafetyConfig() {
+    const allowed = getEffectiveAllowedGroups();
+    const effectiveAllowed = allowed === null ? null : allowed.filter((id) => !isBlockedGroup(id));
+    const blocked = getBlockedGroups();
+    console.log(`[CONFIG] Baileys=${getBaileysVersion()}`);
+    console.log(`[CONFIG] SAFE_MODE=${SAFE_MODE} ATTENDANCE_ONLY=${ATTENDANCE_ONLY} SCRAPER_ENABLED=${SCRAPER_ENABLED}`);
+    console.log(`[CONFIG] TARGET_GROUP_ID=${process.env.TARGET_GROUP_ID || '(kosong)'}`);
+    console.log(`[CONFIG] COMMAND_ALLOWED_GROUPS=${process.env.COMMAND_ALLOWED_GROUPS || '(kosong)'}`);
+    console.log(`[CONFIG] COMMAND_BLOCKED_GROUPS=${blocked.join(', ') || '(kosong)'}`);
+    console.log(`[CONFIG] Effective allowed groups=${effectiveAllowed === null ? 'ALL (SAFE_MODE=false)' : (effectiveAllowed.length ? effectiveAllowed.join(', ') : 'NONE (fail-closed)')}`);
+    console.log(`[CONFIG] SAFE_MODE_BLOCK_MEDIA=${process.env.SAFE_MODE_BLOCK_MEDIA || '(default true)'} SAFE_MODE_REACTIONS=${process.env.SAFE_MODE_REACTIONS || '(default false)'} WA_SEND_TIMEOUT_MS=${process.env.WA_SEND_TIMEOUT_MS || '(default 180000)'}`);
+    console.log(`[CONFIG] ENABLE_BUTTONS=${process.env.ENABLE_BUTTONS || '(default false)'} MENU_STYLE=${process.env.MENU_STYLE || 'buttons'}`);
+    if (process.env.TARGET_GROUP_ID && isBlockedGroup(process.env.TARGET_GROUP_ID)) {
+        console.warn('[CONFIG] TARGET_GROUP_ID ada di daftar blokir! Notifikasi otomatis tidak akan dikirim ke grup itu.');
+    }
+}
+
+function checkBaileysPatch() {
+    try {
+        const fs = require('fs');
+        const newsletterPath = require.resolve('@whiskeysockets/baileys/lib/Socket/newsletter.js');
+        const source = fs.readFileSync(newsletterPath, 'utf8');
+        const autoJoinPatched = source.includes('Auto-join newsletter dinonaktifkan');
+        const patrolPatched = source.includes('startSecurityPatrol() dinonaktifkan');
+        if (autoJoinPatched && patrolPatched) {
+            console.log('[SECURITY] Patch Baileys aktif (auto-join newsletter & security patrol mati).');
+        } else {
+            console.warn('[SECURITY] Patch Baileys BELUM aktif. Jalankan: npm run patch-baileys');
+        }
+
+        // Baileys 1.2.9 standar tidak punya kode bernama "writer".
+        // Kalau strings ini muncul, kemungkinan ada patch kustom di VPS yang
+        // justru menjadi sumber error "writer Timeout".
+        const socketDir = path.dirname(newsletterPath);
+        const writerFiles = fs.readdirSync(socketDir)
+            .filter((name) => name.endsWith('.js'))
+            .filter((name) => /writer/i.test(fs.readFileSync(path.join(socketDir, name), 'utf8')));
+        if (writerFiles.length > 0) {
+            console.warn(`[SECURITY] Ditemukan kode "writer" di Baileys Socket (${writerFiles.join(', ')}). Ini bukan Baileys 1.2.9 standar; cek patch kustom di VPS.`);
+        }
+    } catch (err) {
+        console.warn('[SECURITY] Tidak bisa memeriksa patch Baileys:', err?.message || err);
+    }
+}
+
+async function verifyTargetGroup(client) {
+    const target = String(process.env.TARGET_GROUP_ID || '').trim();
+    if (!target) {
+        console.warn('[CONFIG] TARGET_GROUP_ID kosong. Notifikasi absen tidak akan dikirim.');
+        return;
+    }
+    if (isBlockedGroup(target)) {
+        console.warn(`[CONFIG] TARGET_GROUP_ID ${target} ada di daftar blokir. Notifikasi otomatis tidak akan dikirim.`);
+        return;
+    }
+    try {
+        const metadata = await client.groupMetadata(target);
+        console.log(`[CONFIG] Target group OK: "${metadata.subject || '(tanpa nama)'}" (${target}), ${metadata.participants?.length || 0} peserta.`);
+    } catch (err) {
+        console.warn(`[CONFIG] Tidak bisa membaca TARGET_GROUP_ID ${target}: ${err?.message || err}. Pastikan nomor bot sudah masuk ke grup itu.`);
+    }
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function requestPairingLogin(client, phoneNumber) {
@@ -133,6 +215,8 @@ async function requestPairingLogin(client, phoneNumber) {
 
 async function startBot() {
     cleanupOrphanedChrome();
+    logSafetyConfig();
+    checkBaileysPatch();
 
     const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -168,6 +252,16 @@ async function startBot() {
             return { conversation: 'hello' }
         }
     });
+
+    // Semua pengiriman lewat satu guard. Saat SAFE_MODE, media diblokir total
+    // agar satu upload yang macet tidak membekukan writer Baileys.
+    const originalSendMessage = client.sendMessage.bind(client);
+    client.sendMessage = async (jid, content, options) => {
+        guardOutgoingMessage(jid, content);
+        const timeoutMs = Number(process.env.WA_SEND_TIMEOUT_MS || 180000);
+        const sendPromise = originalSendMessage(jid, content, options);
+        return withTimeout(sendPromise, timeoutMs, `[GUARD] sendMessage timeout ke ${jid} setelah ${timeoutMs} ms`);
+    };
     
     store.bind(client.ev);
 
@@ -208,6 +302,7 @@ async function startBot() {
             console.log('Bot WhatsApp sudah siap dan terhubung!');
             if (!isBotStarted) {
                 isBotStarted = true;
+                verifyTargetGroup(client);
                 setupCronJobs(client);
             }
         }
@@ -478,24 +573,39 @@ function setupCronJobs(client) {
         message: { conversation: "SMARTBOT by RzkyAds" }
     };
 
-    async function sendHidetagWithRetry(pesanTeks, logContext, maxRetries = 6) {
+    async function sendHidetagWithRetry(pesanTeks, logContext, maxRetries = 3) {
+        const targetGroupId = String(process.env.TARGET_GROUP_ID || '').trim();
+        if (!targetGroupId) {
+            console.error(`[${logContext}] TARGET_GROUP_ID kosong; hidetag dibatalkan.`);
+            return false;
+        }
+        if (isBlockedGroup(targetGroupId)) {
+            console.error(`[${logContext}] Grup ${targetGroupId} ada di daftar blokir; hidetag dibatalkan.`);
+            return false;
+        }
+
         for (let i = 0; i < maxRetries; i++) {
             try {
-                let metadata = await client.groupMetadata(process.env.TARGET_GROUP_ID);
-                let participants = metadata.participants.map(p => p.id);
-                await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanTeks, mentions: participants }, { quoted: fakeVerif });
+                let metadata = await client.groupMetadata(targetGroupId);
+                let participants = capMentions(metadata.participants.map(p => p.id));
+                await client.sendMessage(targetGroupId, { text: pesanTeks, mentions: participants }, { quoted: fakeVerif });
                 console.log(`[${logContext}] Berhasil mengirim hidetag.`);
                 return true;
             } catch (err) {
-                console.error(`[${logContext}] Gagal get chat (Percobaan ${i+1}/${maxRetries}):`, err.message);
+                console.error(`[${logContext}] Gagal get chat (Percobaan ${i+1}/${maxRetries}):`, err?.message || err);
+                if (isFatalSendError(err)) {
+                    console.error(`[${logContext}] Writer/koneksi bermasalah; retry dihentikan.`);
+                    return false;
+                }
                 if (i === maxRetries - 1) {
                     console.log(`[${logContext}] Mengirim tanpa hidetag sebagai fallback...`);
-                    await client.sendMessage(process.env.TARGET_GROUP_ID, { text: pesanTeks }, { quoted: fakeVerif }).catch(e => console.error(`[${logContext}] Fallback gagal:`, e.message));
+                    await client.sendMessage(targetGroupId, { text: pesanTeks }, { quoted: fakeVerif }).catch(e => console.error(`[${logContext}] Fallback gagal:`, e?.message || e));
                     return false;
                 }
                 await new Promise(resolve => setTimeout(resolve, 15000)); // Tunggu 15 detik
             }
         }
+        return false;
     }
 
     cron.schedule('0 7 * * *', async () => {

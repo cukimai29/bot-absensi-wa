@@ -10,19 +10,23 @@ Panduan ini untuk menjalankan bot di VPS Azure (Linux) memakai **pairing code**,
 
 ## 1. Update kode di VPS
 
-Masuk ke folder bot di VPS, lalu tarik update:
+Masuk ke folder bot di VPS, lalu tarik update (sesuaikan nama folder dengan yang ada di VPS; contoh repo ini biasanya `bot-absensi-wa`):
 
 ```bash
-cd ~/botwaku
+cd ~/bot-absensi-wa
 git pull
 npm install
 ```
+
+> Jangan menjalankan `npm update` atau mengganti versi Baileys. Gunakan versi yang sudah dipin di `package.json` (commit 1.2.9). Kalau tidak ada perubahan dependency, `npm install` boleh dilewati.
 
 Jika VPS tidak terhubung ke GitHub, upload file `index.js`, `package.json`, `ecosystem.config.js`, dan folder `scripts/` secara manual.
 
 ---
 
 ## 2. Hentikan bot dan reset sesi lama
+
+> **Penting:** langkah ini hanya untuk nomor baru atau sesi lama yang sudah tidak valid. Kalau nomor baru sudah berhasil paired dan sesi masih valid, **jangan** jalankan `npm run reset-session`. Cukup `pm2 restart botwaku`.
 
 Sesi lama masih menyimpan kredensial nomor yang sudah diblokir. Sesi ini **harus** dibuang.
 
@@ -173,6 +177,7 @@ QR akan muncul di log. Scan dari WhatsApp > Perangkat Tertaut.
 | `waitForSocketOpen` gagal / timeout | Cek internet VPS: `curl -I https://web.whatsapp.com`. Restart bot. |
 | `pm2: command not found` | Install PM2: `npm install -g pm2`. |
 | Bot connect lalu langsung putus berulang | Hapus sesi, pastikan hanya satu instance bot yang jalan: `pm2 list`. |
+| Log penuh `writer Timeout` / `writer Connection Closed` | Ada pengiriman ke grup yang writer-nya macet. Pastikan grup bermasalah ada di `COMMAND_BLOCKED_GROUPS`, `COMMAND_ALLOWED_GROUPS` hanya berisi grup kelas/testing, dan `SAFE_MODE=true`. Restart bot setelah mengubah `.env`. |
 | Nomor baru langsung diblokir | Nomor baru perlu "pemanasan". Jangan langsung kirim pesan massal. Lihat bagian di bawah. |
 
 ---
@@ -193,7 +198,44 @@ Kalau mau, fitur hidetag otomatis bisa dinonaktifkan atau dijadwalkan ulang agar
 
 ---
 
-## 9. Keamanan
+## 9. Kalau muncul "writer Timeout"
+
+Log seperti ini:
+
+```text
+Error: 120363xxxxxxxxxx@g.us writer Timeout
+Error: 120363xxxxxxxxxx@g.us writer Connection Closed
+```
+
+artinya bot mencoba mengirim pesan ke grup tersebut, tetapi antrean tulis (writer) Baileys macet. Karena writer dipakai bersama, pengiriman berikutnya ikut gagal dan koneksi akhirnya ditutup (428/503).
+
+Penyebab yang paling sering:
+
+1. Ada command media (stiker, audio, dokumen, gambar) dari grup yang tidak dikenal.
+2. `COMMAND_ALLOWED_GROUPS` kosong, sehingga semua grup bisa memicu command.
+3. Retry otomatis terus mencoba mengirim ke grup yang sama saat writer masih macet.
+
+Yang sudah diperbaiki di kode:
+
+- Saat `SAFE_MODE=true` dan `COMMAND_ALLOWED_GROUPS` kosong, bot hanya memproses `TARGET_GROUP_ID` dan `BUTTONS_TEST_GROUP_ID`.
+- Grup `120363318879953960@g.us` selalu masuk daftar blokir.
+- Semua media diblokir saat `SAFE_MODE=true` (`SAFE_MODE_BLOCK_MEDIA=true`).
+- Retry pengiriman berhenti total saat error `writer Timeout` / `Connection Closed`.
+- `msg.reply` tidak lagi mengirim ulang pesan yang gagal.
+
+Cek log startup:
+
+```text
+[CONFIG] Effective allowed groups=...
+[CONFIG] COMMAND_BLOCKED_GROUPS=...
+[SECURITY] Patch Baileys aktif ...
+```
+
+Kalau `Effective allowed groups=NONE`, isi `TARGET_GROUP_ID` atau `COMMAND_ALLOWED_GROUPS` dengan benar.
+
+---
+
+## 10. Keamanan
 
 - Jangan bagikan file `.env` karena berisi password ETHOL dan API key.
 - Jangan bagikan folder `session/` karena berisi kredensial WhatsApp.

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 const { catatAbsen } = require('./database');
+const { capMentions, isBlockedGroup, isFatalSendError, isValidGroupJid } = require('./chat-guard');
 
 const PUPPETEER_LAUNCH_TIMEOUT = Number(process.env.PUPPETEER_LAUNCH_TIMEOUT || 60000);
 const PUPPETEER_PROTOCOL_TIMEOUT = Number(process.env.PUPPETEER_PROTOCOL_TIMEOUT || 120000);
@@ -104,37 +105,73 @@ function getLastUsedAccount() {
     }
 }
 
+const announceLocks = new Set();
+const announceCooldownUntil = new Map();
+const ANNOUNCE_FATAL_COOLDOWN_MS = 5 * 60 * 1000;
+
 async function announceAbsen(client, groupId, matkul, tanggal) {
+    const targetGroupId = String(groupId || '').trim();
+    if (!isValidGroupJid(targetGroupId)) {
+        console.error(`[announceAbsen] TARGET_GROUP_ID tidak valid: "${targetGroupId || '(kosong)'}". Pengumuman dibatalkan.`);
+        return false;
+    }
+    if (isBlockedGroup(targetGroupId)) {
+        console.error(`[announceAbsen] Grup ${targetGroupId} ada di daftar blokir. Pengumuman dibatalkan.`);
+        return false;
+    }
+    const cooldownUntil = announceCooldownUntil.get(targetGroupId) || 0;
+    if (Date.now() < cooldownUntil) {
+        console.warn(`[announceAbsen] Cooldown setelah error fatal masih aktif untuk ${targetGroupId}; pengumuman dilewati.`);
+        return false;
+    }
+    if (announceLocks.has(targetGroupId)) {
+        console.warn(`[announceAbsen] Pengumuman ke ${targetGroupId} masih berjalan; permintaan duplikat dilewati.`);
+        return false;
+    }
+    announceLocks.add(targetGroupId);
+
     const fakeVerif = {
-        key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: groupId },
+        key: { id: '12345678901234567890123456789012', fromMe: false, participant: '0@s.whatsapp.net', remoteJid: targetGroupId },
         message: { conversation: "SMARTBOT by RzkyAds" }
     };
 
     let text = `🚨 *ATTENTION PLEASE!* 🚨\n\nAbsensi untuk matkul *${matkul}* udah dibuka nih di ETHOL! 🔥\n\nBuruan diabsen yaa kawan-kawan, jangan sampai lupa apalagi nunggu mepet! Ingat, alpha menumpuk = SP di depan mata! 💀🏃‍♂️💨\n\n📅 Tanggal: ${tanggal}`;
-    
-    let maxRetries = 6;
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            let metadata = await client.groupMetadata(groupId);
-            let mentions = metadata.participants.map(p => p.id);
-            await client.sendMessage(groupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
-            return true; // Berhasil
-        } catch (err) {
-            console.error(`[announceAbsen] Gagal mengirim pengumuman absen (Attempt ${i+1}/${maxRetries}):`, err.message);
-            if (i === maxRetries - 1) {
-                console.log("[announceAbsen] Mencoba kirim absen tanpa hidetag sebagai fallback...");
-                try {
-                    await client.sendMessage(groupId, { text: text }, { quoted: fakeVerif });
-                    return true;
-                } catch(e) {
-                    console.error("[announceAbsen] Gagal total mengirim absen:", e.message);
+
+    // Retry lebih sedikit + berhenti total kalau writer/koneksi sudah bermasalah.
+    // Retry berulang saat writer macet hanya memperpanjang antrean dan memicu disconnect.
+    let maxRetries = 3;
+    try {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                let metadata = await client.groupMetadata(targetGroupId);
+                let mentions = capMentions(metadata.participants.map(p => p.id));
+                await client.sendMessage(targetGroupId, { text: text, mentions: mentions }, { quoted: fakeVerif });
+                return true; // Berhasil
+            } catch (err) {
+                const message = err?.message || String(err);
+                console.error(`[announceAbsen] Gagal mengirim pengumuman absen (Attempt ${i+1}/${maxRetries}):`, message);
+                if (isFatalSendError(err)) {
+                    announceCooldownUntil.set(targetGroupId, Date.now() + ANNOUNCE_FATAL_COOLDOWN_MS);
+                    console.error('[announceAbsen] Writer/koneksi bermasalah. Retry dihentikan agar tidak memperparah timeout.');
                     return false;
                 }
+                if (i === maxRetries - 1) {
+                    console.log("[announceAbsen] Mencoba kirim absen tanpa hidetag sebagai fallback...");
+                    try {
+                        await client.sendMessage(targetGroupId, { text: text }, { quoted: fakeVerif });
+                        return true;
+                    } catch(e) {
+                        console.error("[announceAbsen] Gagal total mengirim absen:", e?.message || e);
+                        return false;
+                    }
+                }
+                await new Promise(resolve => setTimeout(resolve, 15000)); // Tunggu 15 detik sebelum retry
             }
-            await new Promise(resolve => setTimeout(resolve, 15000)); // Tunggu 15 detik sebelum retry
         }
+        return false;
+    } finally {
+        announceLocks.delete(targetGroupId);
     }
-    return false;
 }
 
 async function checkPortal(client) {
