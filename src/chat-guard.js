@@ -24,7 +24,6 @@ const SAFE_MODE_BLOCKED_COMMANDS = new Set([
     '.sticker',
     '.meme',
     '.nulis',
-    '.owner',
 ]);
 
 const FATAL_SEND_ERROR_PATTERNS = [

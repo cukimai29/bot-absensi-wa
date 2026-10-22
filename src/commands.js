@@ -133,6 +133,7 @@ const MAIN_MENU_SECTIONS = [
     rows: [
       { title: "⏱️ Runtime", description: "Lihat uptime bot", id: ".runtime" },
       { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", id: ".help" },
+      { title: "👑 Info Owner", description: "Info kontak owner bot", id: ".owner" },
     ],
   },
 ];
@@ -195,13 +196,15 @@ Ketik *.menu* untuk kembali.`,
     rows: [
       { title: "⏱️ Runtime", description: "Lihat uptime bot", id: ".runtime" },
       { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", id: ".help" },
+      { title: "👑 Info Owner", description: "Info kontak owner bot", id: ".owner" },
       { title: "⬅️ Menu Utama", description: "Kembali ke menu utama", id: ".menu" },
     ],
     fallbackText: `ℹ️ *INFO BOT*
 
 1. *.runtime* — uptime bot
 2. *.help* — menu lengkap
-3. *.menu* — menu utama`,
+3. *.owner* — info owner bot
+4. *.menu* — menu utama`,
   },
 };
 
@@ -1951,25 +1954,12 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
 
   if (msg.body.toLowerCase() === ".owner") {
     msg.reply(
+      "👑 *INFO OWNER BOT*\n\n" +
+      "Nama: *RzkyAds*\n" +
+      "Nomor: *0857-0468-2918*\n" +
+      "WhatsApp: https://wa.me/6285704682918\n\n" +
       "ciee kepo sama ownerkuu yang ganteng imut lucu ini yakk?? xixixi",
     );
-    try {
-      const vcard = 'BEGIN:VCARD\n' +
-        'VERSION:3.0\n' +
-        'FN:RzkyAds\n' +
-        'ORG:Owner Bot;\n' +
-        'item1.TEL;waid=6285704682918:+62 857-0468-2918\n' +
-        'item1.X-ABLabel:Ponsel\n' +
-        'END:VCARD';
-      await client.sendMessage(msg.from, { contacts: { displayName: 'RzkyAds', contacts: [{ vcard }] } });
-    } catch (err) {
-      console.error("Gagal mengirim kontak owner:", err?.message || err);
-      if (isFatalSendError(err)) {
-        console.error("[OWNER] Writer/koneksi bermasalah; balasan teks dibatalkan.");
-        return;
-      }
-      msg.reply("Nomor Owner (RzkyAds): 085704682918");
-    }
   }
 
   if (
