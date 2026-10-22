@@ -96,6 +96,8 @@ async function launchBrowser(overrides = {}) {
 }
 
 const NOTIF_WAIT_SELECTOR = [
+    'button[aria-label="Notifikasi"]',
+    'button[aria-label="Notifications"]',
     'button[aria-label*="notifikasi" i]',
     'button[aria-label*="notification" i]',
     '.mdi-bell',
@@ -150,6 +152,8 @@ async function logPortalDiagnostics(page, label = '[PORTAL]') {
 
 async function openNotifications(page, label = '[PORTAL]') {
     const selectors = [
+        'button[aria-label="Notifikasi"]',
+        'button[aria-label="Notifications"]',
         'button[aria-label*="notifikasi" i]',
         'button[aria-label*="notification" i]',
         'button[aria-label*="bell" i]',
@@ -506,9 +510,22 @@ async function intensiveCheckPortal(client, targetMatkul, customDurationMs = 10 
         await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
 
         if (await isLoginPage(page)) {
-            console.error('[INTENSIF] Login gagal: masih di halaman login. Periksa ETHOL_USERNAME/ETHOL_PASSWORD atau captcha.');
-            await page.screenshot({ path: 'debug_intensif_login.png' }).catch(() => {});
-            return;
+            console.log('[INTENSIF] Login pertama gagal, mencoba sekali lagi...');
+            await page.goto('https://login.pens.ac.id/cas/login?service=https%3A%2F%2Fethol.pens.ac.id%2Fapi%2Fauth%2Fcas-callback', { waitUntil: 'networkidle2' });
+            await page.type('#username', username);
+            await page.type('#password', password);
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+                page.keyboard.press('Enter')
+            ]);
+            await page.goto('https://ethol.pens.ac.id/mahasiswa/beranda', { waitUntil: 'networkidle2' });
+
+            if (await isLoginPage(page)) {
+                console.error('[INTENSIF] Login tetap gagal. Periksa ETHOL_USERNAME/ETHOL_PASSWORD atau captcha.');
+                await page.screenshot({ path: 'debug_intensif_login.png' }).catch(() => {});
+                return;
+            }
+            console.log('[INTENSIF] Login ulang berhasil.');
         }
 
         try {
