@@ -276,6 +276,10 @@ RAM sedang pas-pasan. Jangan turunkan `MIN_FREE_MEMORY_MB` tanpa swap; risikonya
 proses lain dibunuh OOM killer. Kalau setelah swap + 220 MB masih sering gagal,
 upgrade VPS ke RAM 2 GB.
 
+Setelah bot hidup, admin/owner bisa mengirim `.status` di grup untuk melihat
+uptime, RAM bot, RAM tersedia, swap, status scraper, sync ETHOL terakhir, jumlah
+jadwal hari ini, tugas belum selesai, dan rekap absen minggu ini.
+
 ---
 
 ## 10. Kalau muncul "writer Timeout"

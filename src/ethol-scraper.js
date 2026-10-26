@@ -10,6 +10,25 @@ const MIN_FREE_MEMORY_MB = Number(process.env.MIN_FREE_MEMORY_MB || 300);
 
 const activeBrowsers = new Set();
 let scraperBusy = false;
+let lastSyncAt = null;
+let lastSyncOk = null;
+let lastSyncError = null;
+
+function recordSyncResult(ok, error = null) {
+    lastSyncAt = Date.now();
+    lastSyncOk = ok;
+    lastSyncError = error ? String(error?.message || error) : null;
+}
+
+function getScraperStatus() {
+    return {
+        busy: scraperBusy,
+        activeBrowsers: activeBrowsers.size,
+        lastSyncAt,
+        lastSyncOk,
+        lastSyncError,
+    };
+}
 
 function getAvailableMemoryMB() {
     try {
@@ -743,6 +762,7 @@ async function syncJadwalTugas() {
     console.log("[ETHOL SYNC] Memulai sinkronisasi Jadwal & Tugas...");
     if (!process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEYS) {
         console.log("[ETHOL SYNC] Dibatalkan: API Key Gemini tidak ditemukan.");
+        recordSyncResult(false, "API Key Gemini tidak ditemukan");
         releaseScraperLock();
         return;
     }
@@ -752,6 +772,7 @@ async function syncJadwalTugas() {
         browser = await launchBrowser();
     } catch (err) {
         console.error('[ETHOL SYNC] Gagal membuka browser:', err.message);
+        recordSyncResult(false, err);
         releaseScraperLock();
         return;
     }
@@ -900,9 +921,11 @@ ${tugasText.substring(0, 5000)}`;
         // PENTING: JANGAN PERNAH MENYENTUH db.jadwal KARENA ITU ADALAH REKAP ABSENSI!
         
         saveData(db);
+        recordSyncResult(true);
         console.log("[ETHOL SYNC] Sinkronisasi berhasil! Jadwal dan Tugas terbaru telah disimpan ke database.");
 
     } catch (err) {
+        recordSyncResult(false, err);
         console.error("[ETHOL SYNC] Gagal melakukan sinkronisasi:", err);
     } finally {
         await closeBrowser(browser);
@@ -910,4 +933,4 @@ ${tugasText.substring(0, 5000)}`;
     }
 }
 
-module.exports = { checkPortal, announceAbsen, getLastUsedAccount, intensiveCheckPortal, syncJadwalTugas, closeAllBrowsers, diagnosePortal };
+module.exports = { checkPortal, announceAbsen, getLastUsedAccount, intensiveCheckPortal, syncJadwalTugas, closeAllBrowsers, diagnosePortal, getScraperStatus };

@@ -8,6 +8,7 @@ const { GoogleGenAI } = require("@google/genai");
 const googleTTS = require("google-tts-api");
 const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 const { checkKasAndSend } = require("./kas-tricendes/kas-checker");
+const { buildBotStatusMessage } = require("./bot-status");
 const {
   areReactionsEnabled,
   capMentions,
@@ -147,7 +148,7 @@ const MAIN_MENU_SECTIONS = [
   {
     title: "ℹ️ Info Bot",
     rows: [
-      { title: "⏱️ Runtime", description: "Lihat uptime bot", id: ".runtime" },
+      { title: "📊 Status Bot", description: "Cek kesehatan dan uptime bot", id: ".status" },
       { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", id: ".help" },
       { title: "👑 Info Owner", description: "Info kontak owner bot", id: ".owner" },
     ],
@@ -202,14 +203,15 @@ Ketik *.menu* untuk kembali.`,
   },
   ".menu_info": {
     header: "ℹ️ INFO BOT",
-    title: "Pilih menu info:\n\n• Uptime bot\n• Daftar semua fitur\n• Kembali ke menu utama",
-    footer: "SMARTBOT by RzkyAds",
+    title: "Pilih menu info:\n\n• Status dan uptime bot\n• Daftar semua fitur\n• Info owner",
+    footer: "SMARTBOT by RzkyAds | Ketik .menu untuk kembali",
     buttons: [
+      ["📊 Status Bot", ".status"],
       ["⏱️ Runtime", ".runtime"],
       ["📋 Menu Lengkap", ".help"],
-      ["⬅️ Menu Utama", ".menu"],
     ],
     rows: [
+      { title: "📊 Status Bot", description: "Kesehatan bot, RAM, dan sync (khusus admin)", id: ".status" },
       { title: "⏱️ Runtime", description: "Lihat uptime bot", id: ".runtime" },
       { title: "📋 Menu Lengkap", description: "Daftar semua fitur bot", id: ".help" },
       { title: "👑 Info Owner", description: "Info kontak owner bot", id: ".owner" },
@@ -217,10 +219,11 @@ Ketik *.menu* untuk kembali.`,
     ],
     fallbackText: `ℹ️ *INFO BOT*
 
-1. *.runtime* — uptime bot
-2. *.help* — menu lengkap
-3. *.owner* — info owner bot
-4. *.menu* — menu utama`,
+1. *.status* — status bot (khusus admin)
+2. *.runtime* — uptime bot
+3. *.help* — menu lengkap
+4. *.owner* — info owner bot
+5. *.menu* — menu utama`,
   },
 };
 
@@ -744,19 +747,20 @@ Halo! Aku SmartBot. Ketik *.menu* untuk membuka menu fitur bot.`;
 22. *.stiker* : Mengubah foto menjadi stiker.
 23. *!ping* : Mengecek kecepatan respon bot.
 24. *.runtime* : Melihat uptime bot.
-25. *.owner* : Menampilkan info owner bot.
+25. *.status* : Dashboard kondisi bot (khusus admin).
+26. *.owner* : Menampilkan info owner bot.
 
 *👑 KHUSUS ADMIN GRUP*
-26. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*
-27. *.hapus_tugas <Nomor>*
-28. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*
-29. *.hapusjadwal <Hari> | <Matkul>*
-30. *.hidetag <Pesan>*
-31. *.setminggu <Angka>*
-32. *.hapusrekap <Tanggal>*
+27. *.tambah_tugas <Matkul> | <Deskripsi> | <YYYY-MM-DD>*
+28. *.hapus_tugas <Nomor>*
+29. *.jadwaledit <Hari> | <Matkul> | <Jam> | <Ruang>*
+30. *.hapusjadwal <Hari> | <Matkul>*
+31. *.hidetag <Pesan>*
+32. *.setminggu <Angka>*
+33. *.hapusrekap <Tanggal>*
 
 *👑 KHUSUS OWNER*
-33. *.resetbot <Semester>*
+34. *.resetbot <Semester>*
 
 _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder tugas setiap pagi (07:00 WIB)!_`;
 
@@ -1142,6 +1146,7 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
     senderId.includes("70523564343409");
 
   const adminCommands = [
+    ".status",
     ".setminggu",
     ".testabsen",
     ".jadwaledit",
@@ -1188,6 +1193,16 @@ _Catatan: Bot otomatis ganti minggu setiap Senin, dan punya sistem auto-reminder
       msg.reply(
         "Mohon Maaf, fitur ini khusus untuk *Admin Grup* atau *Owner* bot!",
       );
+      return;
+    }
+
+    if (msg.body.toLowerCase() === ".status") {
+      try {
+        await msg.reply(buildBotStatusMessage(client));
+      } catch (err) {
+        console.error("[STATUS] Gagal membuat status:", err?.message || err);
+        await msg.reply("❌ Gagal mengambil status bot.");
+      }
       return;
     }
 
